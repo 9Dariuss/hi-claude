@@ -8,7 +8,8 @@
 wake_model = "base"      # rápido, solo para detectar «Oye Claude»
 command_model = "small"  # más preciso, para transcribir la orden
 language = "es"
-compute_type = "int8"
+device = "auto"         # "auto" = GPU NVIDIA si hay (más rápido), si no CPU; o "cuda" / "cpu"
+compute_type = "auto"   # "auto" = int8_float16 en GPU, int8 en CPU
 
 wake_window_s = 2.0
 min_speech_s = 0.3      # voz real mínima (Silero VAD) para usar Whisper

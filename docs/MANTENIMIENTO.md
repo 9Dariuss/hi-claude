@@ -44,6 +44,7 @@ Di «Oye Claude, hola». Debes ver `¡activado!` y `→ Claude: hola`. Sal con `
 | **python** (p. ej. 3.14 → 3.15) | El entorno virtual se rompe y el servicio no arranca. Ejecuta `~/oye-claude/linux/install.sh` (lo detecta y lo rehace solo). |
 | **pipewire / portaudio** | Normalmente nada. Si no oye, `systemctl --user restart oye-claude`. |
 | **tmux** | Nada. Si `claude-voz` da error, cierra las sesiones viejas con `tmux kill-server`. |
+| **nvidia** (el driver de la GPU) | **Reinicia el PC.** Hasta reiniciar, la GPU no funciona y Oye Claude sigue en CPU (más lento, pero funciona). |
 | **Claude Code** (se actualiza solo) | Nada: el enlace `~/.local/bin/claude` siempre apunta a la versión nueva. |
 
 Truco: tras **cualquier** actualización grande, ejecutar el instalador de nuevo no hace daño y lo deja todo al día:
@@ -84,7 +85,8 @@ Cambios típicos:
 | Otro micrófono | `input_device = "nombre"` (nombres en `oye-claude --list-devices`) |
 | Que no se active con ruido | sube `vad_margin_db` (15–18) o `min_speech_s` (0.5) |
 | Que me detecte mejor si hablo bajo | baja `vad_margin_db` (8–10) |
-| Más precisión en las órdenes | `command_model = "medium"` (más lento) |
+| Más precisión en las órdenes | `command_model = "large-v3-turbo"` (con GPU va rápido; +1,6 GB de descarga) |
+| No usar la GPU (p. ej. para jugar) | `device = "cpu"` |
 | Que retome la última conversación | `claude_command = "/home/d4/.local/bin/claude --continue"` |
 | Que Claude se abra en otra carpeta por defecto | `workdir = "~/proyectos"` |
 | Silenciar pitidos / avisos | `beep = false` / `notify = false` |
@@ -105,6 +107,7 @@ Ve paso por paso y para en el primero que falle.
    ```
    - `No module named …` o `python3.x: not found` → Python se actualizó: `~/oye-claude/linux/install.sh`
    - `PortAudio` / `Invalid input device` → paso 2.
+   - `no se pudo usar la GPU, sigo en CPU` → no es un fallo grave. Suele pasar tras actualizar el driver de NVIDIA: reinicia el PC. Comprueba con `nvidia-smi` que la GPU responde.
    - Otra cosa → `systemctl --user restart oye-claude` y vuelve a mirar.
 
 2. **¿Llega audio del micrófono?** Para el servicio (solo para probar) y mide:
@@ -133,8 +136,9 @@ Ve paso por paso y para en el primero que falle.
 
 ## 7. Consumo de recursos
 
-- En silencio: ~1–2 % de un núcleo de CPU, ~700 MB de RAM (los dos modelos de Whisper cargados).
-- Cada vez que alguien habla cerca del micro (tú, Discord, un vídeo) se transcriben unos segundos con Whisper `base`, lo que gasta CPU en ese momento. Es normal.
+- Con GPU (por defecto si hay NVIDIA): ~1–5 % de un núcleo de CPU, ~1,2 GB de RAM y ~580 MB de memoria de vídeo.
+- Sin GPU: ~1–2 % de CPU en silencio, pero cada vez que alguien habla cerca del micro (tú, Discord, un vídeo) Whisper gasta CPU unos segundos.
+- Para ver qué está usando: `journalctl --user -u oye-claude | grep "modelos listos"` → `(GPU)` o `(CPU)`.
 - Para pausarlo un rato (p. ej. en una llamada o jugando):
   ```bash
   systemctl --user stop oye-claude
@@ -160,5 +164,6 @@ Ve paso por paso y para en el primero que falle.
 | Configuración | `~/.config/oye-claude/config.toml` |
 | Servicio | `~/.config/systemd/user/oye-claude.service` |
 | Modelos de Whisper (~650 MB) | `~/.cache/huggingface/hub/` |
+| Librerías CUDA (cuBLAS, cuDNN) | dentro del entorno Python, en `~/.local/share/oye-claude/venv/` |
 
 Si reinstalas el sistema, basta con clonar el repo y ejecutar `linux/install.sh` (y copiar tu `config.toml` si lo personalizaste).

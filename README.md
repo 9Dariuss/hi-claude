@@ -9,6 +9,7 @@ Claude:  ● Voy a ejecutar los tests...
 ```
 
 - 100 % local: la voz se transcribe en tu PC con [faster-whisper](https://github.com/SYSTRAN/faster-whisper). No se envía audio a ningún sitio.
+- Usa la **GPU NVIDIA** si la hay (≈10× más rápido: la orden se transcribe en ~0,3 s) y si no, la CPU.
 - Funciona en español e inglés y entiende variantes: «Hey Claude», «Oye Claude», «Ey Clod», «Ok Claude»…
 - Arranca solo con la sesión gráfica (servicio systemd de usuario).
 - Si Claude no está abierto, lo abre en una terminal nueva.
@@ -83,6 +84,7 @@ El instalador:
 - copia el daemon a `~/.local/share/oye-claude/` y crea un entorno virtual de Python con sus dependencias;
 - crea los comandos `oye-claude` y `claude-voz` en `~/.local/bin/`;
 - crea la configuración en `~/.config/oye-claude/config.toml`;
+- si detecta una GPU NVIDIA (`nvidia-smi`), instala cuBLAS y cuDNN dentro del entorno virtual (~1,2 GB, sin tocar el sistema);
 - descarga los modelos de Whisper (`base` ~150 MB, `small` ~480 MB, solo la primera vez);
 - instala y arranca el servicio `oye-claude.service` de systemd (usuario).
 
@@ -126,7 +128,8 @@ Ajustes útiles:
 |---|---|
 | `input_device` | Elegir micrófono (nombre o índice de `--list-devices`) |
 | `vad_margin_db` | Súbelo (15–18) si el ruido corta mal las frases; bájalo si no te detecta |
-| `command_model` | `medium` o `large-v3-turbo` para más precisión (más lento) |
+| `device` | `auto` (GPU si hay), `cuda` o `cpu` |
+| `command_model` | `medium` o `large-v3-turbo` para más precisión (con GPU va de sobra) |
 | `claude_command` | p. ej. `"claude --continue"` para retomar la última conversación |
 | `terminal` | `"kitty"`, `"gnome-terminal --"`, `"konsole -e"`… |
 | `workdir` | Carpeta donde se abre Claude si no había sesión |
@@ -162,6 +165,7 @@ linux/
   oye-claude.service     servicio systemd de usuario
   config.example.toml    configuración con valores por defecto
   requirements.txt
+  requirements-gpu.txt   cuBLAS/cuDNN para usar la GPU NVIDIA
 docs/
   MANTENIMIENTO.md       guía paso a paso: uso, actualizaciones, diagnóstico
   MEMORIA-WINDOWS.md     contexto para portarlo a Windows con Claude

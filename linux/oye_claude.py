@@ -58,7 +58,10 @@ class Config:
     wake_model: str = "base"
     command_model: str = "small"
     language: str = "es"
-    compute_type: str = "int8"
+    # "auto" usa la GPU NVIDIA si está disponible y si no la CPU; o "cuda" / "cpu"
+    device: str = "auto"
+    # "auto" = int8_float16 en GPU, int8 en CPU
+    compute_type: str = "auto"
     # Segundos de audio que se usan para buscar la palabra de activación
     wake_window_s: float = 2.0
     # Silero VAD: mínimo de voz real (s) para molestarse en pasar la frase a Whisper
@@ -205,6 +208,29 @@ def beep(freq: float, ms: int = 120) -> None:
 
 # --------------------------------------------------------------------------- whisper
 
+def ensure_cuda_libs() -> None:
+    """Las librerías CUDA instaladas con pip (nvidia-cublas, nvidia-cudnn) se cargan con
+    dlopen, que solo mira LD_LIBRARY_PATH al arrancar: se añaden y el proceso se relanza."""
+    try:
+        import nvidia
+    except ImportError:
+        return
+    libs = [str(d) for base in nvidia.__path__ for d in sorted(Path(base).glob("*/lib"))]
+    current = os.environ.get("LD_LIBRARY_PATH", "")
+    missing = [d for d in libs if d not in current.split(":")]
+    if missing:
+        os.environ["LD_LIBRARY_PATH"] = ":".join(missing + ([current] if current else []))
+        os.execv(sys.executable, [sys.executable, *sys.argv])
+
+
+def cuda_available() -> bool:
+    try:
+        import ctranslate2
+        return ctranslate2.get_cuda_device_count() > 0
+    except Exception:
+        return False
+
+
 class Transcriber:
     def __init__(self, cfg: Config):
         from faster_whisper import WhisperModel
@@ -215,11 +241,25 @@ class Transcriber:
 
         self.cfg = cfg
         threads = max(1, (os.cpu_count() or 4) // 2)
-        log(f"cargando modelos whisper: wake={cfg.wake_model} orden={cfg.command_model} ...")
-        # La detección corre con cada frase que se oye: pocos hilos gastan menos CPU en total.
-        self.wake = WhisperModel(cfg.wake_model, device="cpu", compute_type=cfg.compute_type, cpu_threads=2)
-        self.command = WhisperModel(cfg.command_model, device="cpu", compute_type=cfg.compute_type, cpu_threads=threads)
-        log("modelos listos")
+
+        def load(device: str, wake_threads: int) -> None:
+            ctype = cfg.compute_type
+            if ctype == "auto":
+                ctype = "int8_float16" if device == "cuda" else "int8"
+            log(f"cargando modelos whisper en {device} ({ctype}): wake={cfg.wake_model} orden={cfg.command_model} ...")
+            self.wake = WhisperModel(cfg.wake_model, device=device, compute_type=ctype, cpu_threads=wake_threads)
+            self.command = WhisperModel(cfg.command_model, device=device, compute_type=ctype, cpu_threads=threads)
+
+        if cfg.device in ("auto", "cuda") and cuda_available():
+            try:
+                load("cuda", threads)
+                log("modelos listos (GPU)")
+                return
+            except Exception as exc:  # p. ej. driver actualizado sin reiniciar
+                log(f"no se pudo usar la GPU, sigo en CPU: {exc}")
+        # En CPU la detección corre con cada frase que se oye: pocos hilos gastan menos CPU en total.
+        load("cpu", 2)
+        log("modelos listos (CPU)")
 
     def _run(self, model, audio: np.ndarray) -> str:
         # Sin initial_prompt: con ruido Whisper tiende a "repetir" el prompt,
@@ -400,6 +440,8 @@ def main() -> None:
         elif args.say:
             dispatch(cfg, ClaudeSession(cfg), args.say)
         else:
+            if cfg.device != "cpu":
+                ensure_cuda_libs()
             run(cfg)
     except KeyboardInterrupt:
         print()

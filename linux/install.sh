@@ -43,6 +43,10 @@ fi
 say "Instalando dependencias (faster-whisper, sounddevice)"
 "$APP_DIR/venv/bin/pip" install -q --upgrade pip
 "$APP_DIR/venv/bin/pip" install -q -r "$HERE/requirements.txt"
+if command -v nvidia-smi >/dev/null && nvidia-smi -L >/dev/null 2>&1; then
+    say "GPU NVIDIA detectada: instalando cuBLAS y cuDNN para Whisper (~1,2 GB la primera vez)"
+    "$APP_DIR/venv/bin/pip" install -q -r "$HERE/requirements-gpu.txt"
+fi
 
 cat > "$BIN_DIR/oye-claude" <<EOF
 #!/usr/bin/env bash
