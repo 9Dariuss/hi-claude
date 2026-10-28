@@ -1,39 +1,33 @@
 # Guía paso a paso para que Oye Claude siga funcionando (Linux)
 
-Todo lo de esta guía se hace desde una terminal normal. Los comandos están pensados para fish o bash.
+Los comandos se escriben en una terminal normal y sirven para fish o bash.
 
 ---
 
 ## 1. Uso diario
 
-1. **No hay que arrancar nada.** El servicio `oye-claude` se inicia solo cuando entras en tu sesión gráfica.
-2. Entra en la carpeta de tu proyecto y abre Claude **con `claude-voz`** (no con `claude`):
-   ```bash
-   cd ~/mi-proyecto
-   claude-voz
-   ```
-3. Habla:
-   - «Oye Claude, *orden*» todo seguido, **o**
-   - «Oye Claude» → espera el pitido → di la orden (tienes 8 s).
-4. Para dejar la ventana sin cerrar Claude: `Ctrl+b` y luego `d`. Para volver: `claude-voz`.
-5. Para cambiar de proyecto, cierra Claude (`/exit` o `Ctrl+d`) y vuelve a abrir `claude-voz` en la otra carpeta. Solo hay **una** sesión de voz a la vez (la sesión tmux `claude`).
+1. Pulsa **Super + C**: se abre Oye Claude en el último proyecto que usaste.
+2. Para hablar, pulsa **Super + Alt + C** (funciona con la app cerrada o abierta):
+   1. suena un pitido y el cuadro de texto se marca en rojo con una barra de nivel;
+   2. di lo que quieras y haz una pausa: se transcribe y se envía solo;
+   3. si quieres cortar antes, pulsa el botón ⏹ del micrófono.
+3. Cuando Claude pida permiso para editar o ejecutar algo, lee el diálogo y elige **Permitir**, **Permitir siempre** (solo en esta conversación) o **Denegar**.
+4. Para cambiar de proyecto, usa el botón 📁 de arriba a la izquierda (la flechita muestra los recientes).
+5. Para empezar de cero, usa el botón ＋ (**Ctrl + N**).
 
-> Si hablas sin haber abierto `claude-voz`, el daemon abre Claude solo en tu carpeta personal (`~`).
+> Al cerrar la ventana no queda **nada** en segundo plano: ni micrófono ni procesos.
 
 ---
 
-## 2. Comprobar que todo está bien (30 segundos)
+## 2. Comprobar que todo está bien (1 minuto)
 
-```bash
-systemctl --user status oye-claude
-```
-Debe poner **`active (running)`**. Luego mira lo que oye en vivo:
-
-```bash
-journalctl --user -u oye-claude -f
-```
-
-Di «Oye Claude, hola». Debes ver `¡activado!` y `→ Claude: hola`. Sal con `Ctrl+c`.
+1. Ábrela desde una terminal para ver los mensajes:
+   ```bash
+   oye-claude
+   ```
+2. Escribe «hola» y pulsa Intro: Claude debe responder.
+3. Pulsa 🎙 y di «¿qué hora es?». En la terminal debe salir `cargando whisper small en cuda` (o `en cpu` si no hay GPU) y el texto debe aparecer en el chat.
+4. Cierra la ventana.
 
 ---
 
@@ -41,13 +35,12 @@ Di «Oye Claude, hola». Debes ver `¡activado!` y `→ Claude: hola`. Sal con `
 
 | Si se actualizó… | Qué hacer |
 |---|---|
-| **python** (p. ej. 3.14 → 3.15) | El entorno virtual se rompe y el servicio no arranca. Ejecuta `~/oye-claude/linux/install.sh` (lo detecta y lo rehace solo). |
-| **pipewire / portaudio** | Normalmente nada. Si no oye, `systemctl --user restart oye-claude`. |
-| **tmux** | Nada. Si `claude-voz` da error, cierra las sesiones viejas con `tmux kill-server`. |
-| **nvidia** (el driver de la GPU) | **Reinicia el PC.** Hasta reiniciar, la GPU no funciona y Oye Claude sigue en CPU (más lento, pero funciona). |
-| **Claude Code** (se actualiza solo) | Nada: el enlace `~/.local/bin/claude` siempre apunta a la versión nueva. |
+| **python** (p. ej. 3.14 → 3.15) | La app deja de abrir. Ejecuta `~/oye-claude/linux/install.sh` (rehace el entorno solo). |
+| **gtk4 / libadwaita / webkitgtk** | Normalmente nada. Si no abre, ejecuta el instalador. |
+| **nvidia** (driver de la GPU) | **Reinicia el PC.** Hasta entonces la voz funciona en la CPU (más lenta). |
+| **Claude Code** (se actualiza solo) | Nada. |
 
-Truco: tras **cualquier** actualización grande, ejecutar el instalador de nuevo no hace daño y lo deja todo al día:
+Truco: tras **cualquier** actualización grande, volver a ejecutar el instalador no hace daño y lo deja todo al día:
 
 ```bash
 ~/oye-claude/linux/install.sh
@@ -58,12 +51,10 @@ Truco: tras **cualquier** actualización grande, ejecutar el instalador de nuevo
 ## 4. Actualizar Oye Claude desde GitHub
 
 ```bash
-cd ~/oye-claude
-git pull
-./linux/install.sh
+cd ~/oye-claude && git pull && ./linux/install.sh
 ```
 
-Tu configuración (`~/.config/oye-claude/config.toml`) **no se toca** al reinstalar.
+Tu configuración (`~/.config/oye-claude/config.toml`) y tus atajos se mantienen.
 
 ---
 
@@ -73,84 +64,60 @@ Tu configuración (`~/.config/oye-claude/config.toml`) **no se toca** al reinsta
    ```bash
    nano ~/.config/oye-claude/config.toml
    ```
-2. Reinicia el servicio para aplicarla:
-   ```bash
-   systemctl --user restart oye-claude
-   ```
-
-Cambios típicos:
+2. Cierra la app y vuelve a abrirla.
 
 | Quiero… | Cambia |
 |---|---|
-| Otro micrófono | `input_device = "nombre"` (nombres en `oye-claude --list-devices`) |
-| Que no se active con ruido | sube `vad_margin_db` (15–18) o `min_speech_s` (0.5) |
-| Que me detecte mejor si hablo bajo | baja `vad_margin_db` (8–10) |
-| Más precisión en las órdenes | `command_model = "large-v3-turbo"` (con GPU va rápido; +1,6 GB de descarga) |
-| No usar la GPU (p. ej. para jugar) | `device = "cpu"` |
-| Que retome la última conversación | `claude_command = "/home/d4/.local/bin/claude --continue"` |
-| Que Claude se abra en otra carpeta por defecto | `workdir = "~/proyectos"` |
-| Silenciar pitidos / avisos | `beep = false` / `notify = false` |
+| Otro micrófono | `input_device = "nombre"` (nombres: `oye-claude --list-mics`) |
+| Revisar el texto dictado antes de enviarlo | `auto_send = false` |
+| Más tiempo para pensar entre frases | `end_silence_ms = 2000` |
+| Que entienda mejor lo que dicto | `model = "large-v3-turbo"` (con GPU va rápido; descarga 1,6 GB la primera vez) |
+| Que corte bien con ruido / que me oiga hablando bajo | sube / baja `vad_margin_db` (15 / 8) |
+| No usar la GPU (p. ej. al jugar) | `device = "cpu"` |
+| Quitar el pitido | `beep = false` |
+
+Para cambiar los **atajos de teclado**, ve a *Configuración → Teclado → Atajos de teclado → Ver y personalizar → Atajos personalizados*. Ahí están «Oye Claude» y «Oye Claude (voz)».
 
 ---
 
 ## 6. Si deja de funcionar: diagnóstico en orden
 
-Ve paso por paso y para en el primero que falle.
+Para en el primer paso que falle.
 
-1. **¿Está corriendo el servicio?**
-   ```bash
-   systemctl --user status oye-claude
-   ```
-   Si pone `failed`, mira el error:
-   ```bash
-   journalctl --user -u oye-claude -n 30 --no-pager
-   ```
-   - `No module named …` o `python3.x: not found` → Python se actualizó: `~/oye-claude/linux/install.sh`
-   - `PortAudio` / `Invalid input device` → paso 2.
-   - `no se pudo usar la GPU, sigo en CPU` → no es un fallo grave. Suele pasar tras actualizar el driver de NVIDIA: reinicia el PC. Comprueba con `nvidia-smi` que la GPU responde.
-   - Otra cosa → `systemctl --user restart oye-claude` y vuelve a mirar.
-
-2. **¿Llega audio del micrófono?** Para el servicio (solo para probar) y mide:
-   ```bash
-   systemctl --user stop oye-claude
-   oye-claude --test-mic
-   ```
-   Al hablar debe aparecer `VOZ`; en silencio, no. Si la barra no se mueve: revisa que el micro esté conectado y elegido en *Ajustes → Sonido → Entrada* de GNOME, o ponlo en `input_device`. Al terminar:
-   ```bash
-   systemctl --user start oye-claude
-   ```
-
-3. **¿Te oye pero no se activa?** En `journalctl --user -u oye-claude -f` verás `(ignorado) …` con lo que entendió. Si escribe «Claude» de una forma rara (p. ej. «Clow»), añádela en `WAKE_RE` dentro de `~/oye-claude/linux/oye_claude.py` y reinstala con `./linux/install.sh`.
-
-4. **¿Se activa pero no escribe en Claude?**
-   ```bash
-   oye-claude --say "hola"
-   ```
-   - `Falta tmux` → `sudo pacman -S tmux`
-   - No aparece en tu ventana → probablemente abriste Claude con `claude` y no con `claude-voz`. Ciérralo y usa `claude-voz`.
-   - La primera orden se pierde al abrir Claude → sube `claude_startup_s` a 8.
-
-5. **¿Se activa sola?** Sube `vad_margin_db` y `min_speech_s` (sección 5). Silencia los altavoces cerca del micro si ves vídeos con gente diciendo «Claude».
+1. **¿Abre la app?** Ejecuta `oye-claude` en una terminal.
+   - `No module named …` o `python3.x: not found` → Python se actualizó: `~/oye-claude/linux/install.sh`.
+   - `Namespace Adw/WebKit not available` → falta un paquete del sistema:
+     ```bash
+     sudo pacman -S --needed python-gobject gtk4 libadwaita webkitgtk-6.0
+     ```
+   - `command not found: oye-claude` → `~/.local/bin` no está en el PATH; ejecuta el instalador de nuevo.
+2. **¿Abre pero Claude no responde / da error?**
+   - Comprueba que `claude` funciona en la terminal y que tienes la sesión iniciada.
+   - Si el error habla de autenticación o de `login`, ejecuta `claude` y sigue los pasos para iniciar sesión.
+3. **¿Los atajos no hacen nada?**
+   - Comprueba que existen:
+     ```bash
+     gsettings get org.gnome.settings-daemon.plugins.media-keys custom-keybindings
+     ```
+   - Si no aparecen `oye-claude-voz` y el de Super+C, ejecuta el instalador de nuevo.
+4. **¿El micrófono no capta nada?** (la barra de nivel no se mueve)
+   - Comprueba el micro en *Configuración → Sonido → Entrada*.
+   - O elige otro con `input_device` (sección 5).
+5. **¿Capta, pero transcribe mal o «No he entendido nada»?**
+   - Habla más cerca del micro.
+   - Sube `end_silence_ms` si te corta a mitad de frase.
+   - Prueba `model = "large-v3-turbo"`.
+6. **¿Va lenta la voz?** Ejecuta `oye-claude` en la terminal. Si pone `no se pudo usar la GPU`, reinicia el PC (driver de NVIDIA actualizado) o comprueba que `nvidia-smi` funciona.
 
 ---
 
 ## 7. Consumo de recursos
 
-- Con GPU (por defecto si hay NVIDIA): ~1–5 % de un núcleo de CPU, ~1,2 GB de RAM y ~580 MB de memoria de vídeo.
-- Sin GPU: ~1–2 % de CPU en silencio, pero cada vez que alguien habla cerca del micro (tú, Discord, un vídeo) Whisper gasta CPU unos segundos.
-- Para ver qué está usando: `journalctl --user -u oye-claude | grep "modelos listos"` → `(GPU)` o `(CPU)`.
-- Para pausarlo un rato (p. ej. en una llamada o jugando):
-  ```bash
-  systemctl --user stop oye-claude
-  ```
-  Y para reanudarlo:
-  ```bash
-  systemctl --user start oye-claude
-  ```
-- Para que no arranque al iniciar sesión:
-  ```bash
-  systemctl --user disable oye-claude
-  ```
+- **Con la app cerrada:** nada.
+- **Con la app abierta:** ~700 MB de RAM entre la app (~400 MB) y el motor web que dibuja el chat (~300 MB), más el proceso de `claude` desde el primer mensaje.
+- **Tras usar la voz por primera vez:** el modelo de Whisper se queda cargado mientras la app esté abierta, para que las siguientes veces sea instantáneo:
+  - con GPU: ~420 MB de memoria de vídeo;
+  - sin GPU: ~500 MB de RAM.
 
 ---
 
@@ -159,11 +126,18 @@ Ve paso por paso y para en el primero que falle.
 | Qué | Dónde |
 |---|---|
 | Código fuente (repo git) | `~/oye-claude` |
-| Programa instalado + entorno Python | `~/.local/share/oye-claude/` |
-| Comandos `oye-claude` y `claude-voz` | `~/.local/bin/` |
+| App instalada + entorno Python | `~/.local/share/oye-claude/` |
+| Comando `oye-claude` | `~/.local/bin/oye-claude` |
 | Configuración | `~/.config/oye-claude/config.toml` |
-| Servicio | `~/.config/systemd/user/oye-claude.service` |
-| Modelos de Whisper (~650 MB) | `~/.cache/huggingface/hub/` |
-| Librerías CUDA (cuBLAS, cuDNN) | dentro del entorno Python, en `~/.local/share/oye-claude/venv/` |
+| Último proyecto y recientes | `~/.local/state/oye-claude/state.json` |
+| Entrada del menú e icono | `~/.local/share/applications/io.github.OyeClaude.desktop`, `~/.local/share/icons/hicolor/scalable/apps/` |
+| Modelos de Whisper | `~/.cache/huggingface/hub/` |
+| Conversaciones (las guarda Claude Code) | `~/.claude/projects/` |
 
-Si reinstalas el sistema, basta con clonar el repo y ejecutar `linux/install.sh` (y copiar tu `config.toml` si lo personalizaste).
+## 9. Desinstalar
+
+```bash
+rm -rf ~/.local/share/oye-claude ~/.config/oye-claude ~/.local/state/oye-claude ~/.local/bin/oye-claude ~/.local/share/applications/io.github.OyeClaude.desktop ~/.local/share/icons/hicolor/scalable/apps/io.github.OyeClaude.svg
+```
+
+Luego borra los dos atajos en *Configuración → Teclado → Atajos personalizados*.

@@ -1,34 +1,29 @@
 # Configuración de Oye Claude  →  ~/.config/oye-claude/config.toml
 # Todas las claves son opcionales; estos son los valores por defecto.
+# Tras cambiarla, cierra y vuelve a abrir la app.
 
-# Micrófono: nombre o índice de `oye-claude --list-devices`. Comentado = predeterminado.
+# --- Claude
+claude_path = ""          # vacío = buscar `claude` en el PATH
+default_project = "~"     # carpeta de la primera vez (luego recuerda la última)
+
+# --- Voz
+# Micrófono: nombre o índice (lista: oye-claude --list-mics). Comentado = el predeterminado del sistema.
 # input_device = "Razer Seiren Mini"
 
-# Modelos de faster-whisper: tiny, base, small, medium, large-v3, large-v3-turbo
-wake_model = "base"      # rápido, solo para detectar «Oye Claude»
-command_model = "small"  # más preciso, para transcribir la orden
+# Modelo de faster-whisper: tiny, base, small, medium, large-v3-turbo
+# Con GPU NVIDIA, "large-v3-turbo" entiende mejor y sigue siendo rápido (+1,6 GB de descarga).
+model = "small"
 language = "es"
-device = "auto"         # "auto" = GPU NVIDIA si hay (más rápido), si no CPU; o "cuda" / "cpu"
-compute_type = "auto"   # "auto" = int8_float16 en GPU, int8 en CPU
+device = "auto"           # "auto" = GPU NVIDIA si hay, si no CPU; o "cuda" / "cpu"
+compute_type = "auto"     # "auto" = int8_float16 en GPU, int8 en CPU
 
-wake_window_s = 2.0
-min_speech_s = 0.3      # voz real mínima (Silero VAD) para usar Whisper
-end_silence_ms = 700
-command_end_silence_ms = 1300
-command_timeout_s = 8.0
-max_utterance_s = 20.0
+end_silence_ms = 1300     # pausa que da por terminada la orden
+start_timeout_s = 8.0     # si no empiezas a hablar en este tiempo, deja de escuchar
+max_utterance_s = 60.0
 
-# Sensibilidad del detector de voz. Si se activa con el ruido, sube vad_margin_db.
+# Sensibilidad: si corta antes de tiempo con ruido, sube vad_margin_db; si no te oye, bájalo.
 vad_margin_db = 12.0
 vad_min_dbfs = -50.0
 
-# Sesión de Claude
-tmux_session = "claude"
-claude_command = "claude"          # p. ej. "claude --continue" para retomar la última conversación
-workdir = "~"                      # carpeta donde arranca Claude si no hay sesión
-terminal = "alacritty --title 'Claude (voz)' -e"   # kitty / "gnome-terminal --" / "konsole -e" ...
-claude_startup_s = 5.0
-open_terminal_if_detached = true
-
+auto_send = true          # enviar en cuanto termina de transcribir (false = revisar antes)
 beep = true
-notify = true

@@ -1,71 +1,36 @@
 # 🎙️ Oye Claude
 
-Activa **Claude Code** en tu terminal con la voz. Di **«Oye Claude»** o **«Hey Claude»** seguido de lo que quieras y la orden aparece escrita (y enviada) en la terminal donde corre `claude`.
+**Claude Code en una ventana de escritorio**, legible y sin aspecto de terminal, con **entrada por voz** al pulsar un atajo.
 
-```
-Tú:      «Oye Claude, revisa por qué fallan los tests»
-Daemon:  🔔 → transcribe → escribe en la sesión tmux "claude" → Enter
-Claude:  ● Voy a ejecutar los tests...
-```
+![Captura de Oye Claude](docs/captura.png)
 
-- 100 % local: la voz se transcribe en tu PC con [faster-whisper](https://github.com/SYSTRAN/faster-whisper). No se envía audio a ningún sitio.
-- Usa la **GPU NVIDIA** si la hay (≈10× más rápido: la orden se transcribe en ~0,3 s) y si no, la CPU.
-- Funciona en español e inglés y entiende variantes: «Hey Claude», «Oye Claude», «Ey Clod», «Ok Claude»…
-- Arranca solo con la sesión gráfica (servicio systemd de usuario).
-- Si Claude no está abierto, lo abre en una terminal nueva.
+- **Super + C** → abre Oye Claude.
+- **Super + Alt + C** → abre Oye Claude **escuchando**: dices lo que quieres, haces una pausa y se envía.
+- Respuestas con formato (tablas, código coloreado), tarjetas que resumen lo que hace Claude («Leyendo…», «Editando…», «Ejecutando…») y diálogos para permitir o denegar cambios.
+- Es el mismo Claude Code de la terminal (usa tu sesión, tu `CLAUDE.md` y tus permisos) a través del [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk-python).
+- La voz se transcribe **en tu PC** con [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (en la GPU NVIDIA si hay). No se envía audio a ningún sitio, y el micrófono **solo se abre mientras escuchas**: nada se queda en segundo plano.
 
 | Plataforma | Estado |
 |---|---|
-| Linux (Arch/CachyOS, GNOME Wayland, PipeWire) | ✅ [`linux/`](linux/) |
+| Linux (GNOME, Wayland o X11) | ✅ [`linux/`](linux/) |
 | Mantenimiento y diagnóstico | 📘 [docs/MANTENIMIENTO.md](docs/MANTENIMIENTO.md) |
 | Windows | 🛠️ pendiente — ver [docs/MEMORIA-WINDOWS.md](docs/MEMORIA-WINDOWS.md) |
 
----
-
-## Cómo funciona
-
-```
- micrófono ──► VAD por energía ──► frase ──► Silero VAD ¿es voz? ──► Whisper "base" (primeros 2 s)
-                                                   │
-                                     ¿empieza por «oye/hey claude»?
-                                         no │            │ sí
-                                    (ignorar)            ▼
-                                            ¿hay orden en la misma frase?
-                                              sí │              │ no
-                                                 │       🔔 pitido, escucha
-                                                 │       la siguiente frase
-                                                 ▼              ▼
-                                         Whisper "small" transcribe la orden
-                                                         │
-                       tmux send-keys -t claude "orden" + Enter  ──►  Claude Code
-```
-
-1. **Escucha continua** con `sounddevice` a 16 kHz. Un detector de voz por energía calcula el ruido de fondo (percentil 15 de los últimos 5 s) y corta el audio en frases cuando hay ~0,7 s de silencio.
-2. **Filtro de voz real**: Silero VAD (incluido en faster-whisper, ~10 ms) descarta teclado, golpes y ruido para no gastar CPU en Whisper.
-3. **Detección de la palabra de activación**: cada frase con voz se pasa por Whisper `base` con 2 hilos (~1 s) y se busca con una expresión regular tolerante (`hey|oye|ey|ok…` + `claude|clod|cloud|claudio…`). Así no hace falta entrenar un modelo de wake word.
-4. **Transcripción de la orden** con Whisper `small` (más preciso). Si dijiste solo «Oye Claude», suena un pitido y espera la orden hasta 8 s.
-5. **Envío a Claude**: Claude Code corre dentro de una sesión de **tmux** llamada `claude`. El daemon escribe con `tmux send-keys`, que funciona igual en X11 y en Wayland (en Wayland las herramientas tipo `xdotool` no pueden escribir en otras ventanas).
-
-### Órdenes especiales
-
-| Dices | Hace |
-|---|---|
-| «Oye Claude, cancela» / «para» / «detente» | Pulsa `Esc` (interrumpe a Claude) |
-| «Oye Claude, nueva conversación» / «limpia» | Envía `/clear` |
+> La versión 1 (daemon siempre escuchando «Oye Claude» + tmux) está en la etiqueta [`v1-tmux`](https://github.com/9Dariuss/oye-claude/tree/v1-tmux).
 
 ---
 
-## Instalación en Linux
+## Instalación (Linux)
 
 ### 1. Requisitos
 
 ```bash
-sudo pacman -S --needed tmux portaudio python
+sudo pacman -S --needed python python-gobject gtk4 libadwaita webkitgtk-6.0 portaudio
 ```
 
-(Debian/Ubuntu: `sudo apt install tmux libportaudio2 python3-venv`)
+(Debian/Ubuntu 24.04+: `sudo apt install python3-venv python3-gi gir1.2-adw-1 gir1.2-webkit-6.0 libportaudio2`)
 
-Y Claude Code instalado (`claude` en el PATH):
+Y Claude Code instalado y con la sesión iniciada (ejecuta `claude` una vez en la terminal):
 
 ```bash
 curl -fsSL https://claude.ai/install.sh | bash
@@ -74,101 +39,99 @@ curl -fsSL https://claude.ai/install.sh | bash
 ### 2. Instalar
 
 ```bash
-git clone https://github.com/9Dariuss/oye-claude.git
-cd oye-claude/linux
-./install.sh
+git clone https://github.com/9Dariuss/oye-claude.git ~/oye-claude
+```
+
+```bash
+~/oye-claude/linux/install.sh
 ```
 
 El instalador:
 
-- copia el daemon a `~/.local/share/oye-claude/` y crea un entorno virtual de Python con sus dependencias;
-- crea los comandos `oye-claude` y `claude-voz` en `~/.local/bin/`;
-- crea la configuración en `~/.config/oye-claude/config.toml`;
-- si detecta una GPU NVIDIA (`nvidia-smi`), instala cuBLAS y cuDNN dentro del entorno virtual (~1,2 GB, sin tocar el sistema);
-- descarga los modelos de Whisper (`base` ~150 MB, `small` ~480 MB, solo la primera vez);
-- instala y arranca el servicio `oye-claude.service` de systemd (usuario).
-
-Usa `./install.sh --no-service` si prefieres arrancarlo a mano con `oye-claude`.
+1. copia la app a `~/.local/share/oye-claude/` con su propio entorno de Python;
+2. crea el comando `oye-claude` en `~/.local/bin/`;
+3. añade **Oye Claude** al menú de aplicaciones, con su icono;
+4. si hay GPU NVIDIA, instala cuBLAS y cuDNN dentro del entorno (sin tocar el sistema);
+5. descarga el modelo de Whisper (`small`, ~480 MB);
+6. configura los atajos de GNOME **Super+C** y **Super+Alt+C**. Si ya tenías un atajo en Super+C, lo reutiliza. Usa `--no-shortcuts` para no tocarlos;
+7. si tenías la versión 1, retira su servicio en segundo plano.
 
 ### 3. Usar
 
-Abre Claude en tu proyecto **a través de `claude-voz`** (en lugar de `claude`):
-
-```bash
-cd ~/mi-proyecto
-claude-voz
-```
-
-`claude-voz` arranca Claude dentro de la sesión tmux `claude` (o se une a ella si ya existe). Ahora di:
-
-> «Oye Claude, explícame la estructura de este proyecto»
-
-Si no tienes ninguna sesión abierta, el daemon la crea en `workdir` (por defecto `~`) y abre una ventana de Alacritty conectada a ella.
-
-> **Consejo tmux**: para salir de la ventana sin cerrar Claude pulsa `Ctrl+b` y luego `d`. Vuelve con `claude-voz`.
-
-### 4. Comprobar y ajustar
-
-```bash
-oye-claude --list-devices     # lista micrófonos
-oye-claude --test-mic         # barra de nivel en vivo; debe marcar VOZ solo al hablar
-oye-claude --say "hola"       # prueba el envío a Claude sin usar la voz
-journalctl --user -u oye-claude -f    # logs del servicio (lo que oye y lo que ignora)
-```
-
-Tras cambiar `~/.config/oye-claude/config.toml`:
-
-```bash
-systemctl --user restart oye-claude
-```
-
-Ajustes útiles:
-
-| Clave | Para qué |
+| Acción | Cómo |
 |---|---|
-| `input_device` | Elegir micrófono (nombre o índice de `--list-devices`) |
-| `vad_margin_db` | Súbelo (15–18) si el ruido corta mal las frases; bájalo si no te detecta |
-| `device` | `auto` (GPU si hay), `cuda` o `cpu` |
-| `command_model` | `medium` o `large-v3-turbo` para más precisión (con GPU va de sobra) |
-| `claude_command` | p. ej. `"claude --continue"` para retomar la última conversación |
-| `terminal` | `"kitty"`, `"gnome-terminal --"`, `"konsole -e"`… |
-| `workdir` | Carpeta donde se abre Claude si no había sesión |
+| Abrir | **Super + C**, el menú de aplicaciones o `oye-claude` |
+| Hablar | **Super + Alt + C** (con la app cerrada o abierta), el botón 🎙 o **Ctrl + M** |
+| Terminar de hablar | Haz una pausa de ~1,3 s, o pulsa 🎙 otra vez |
+| Enviar texto | **Intro** (Mayús + Intro para una nueva línea) |
+| Detener a Claude | **Esc** o el botón ⏹ |
+| Cambiar de proyecto | Botón 📁 (la flecha muestra los recientes) o **Ctrl + O** |
+| Nueva conversación | Botón ＋ o **Ctrl + N** |
+| Abrir en una carpeta | `oye-claude ~/mi-proyecto` (o `oye-claude .`) |
 
-### Desinstalar
+Cuando Claude quiera **editar archivos o ejecutar comandos**, aparece un diálogo con **Permitir**, **Permitir siempre** (en esta conversación) o **Denegar**. Leer archivos y buscar no piden permiso. En el menú ⋮ puedes activar **Aceptar ediciones sin preguntar**.
 
-```bash
-systemctl --user disable --now oye-claude
-rm -rf ~/.local/share/oye-claude ~/.config/oye-claude ~/.local/bin/oye-claude ~/.local/bin/claude-voz ~/.config/systemd/user/oye-claude.service
-```
+Si dices «Oye Claude, …» por costumbre, la app quita esas palabras antes de enviar.
 
 ---
 
+## Cómo funciona
+
+```
+ Super+Alt+C ──► oye-claude --voice ──► (si ya está abierta, la misma ventana)
+                                              │
+ 🎙 micrófono ──► VAD por energía ──► frase ──► faster-whisper (GPU/CPU) ──► texto
+                                                                              │
+ ventana GTK4/Adwaita ◄── HTML (WebKit) ◄── eventos ◄── Claude Agent SDK ◄────┘
+        │                                                  (claude CLI)
+        └── diálogos de permiso ──► can_use_tool ──────────────┘
+```
+
+- **Interfaz**: GTK 4 + libadwaita (aspecto nativo de GNOME, modo oscuro y color de acento del sistema). La conversación se dibuja en WebKitGTK con HTML/CSS: Markdown con `markdown-it-py` y coloreado de código con Pygments. El HTML que escriba Claude se muestra como texto, nunca se ejecuta.
+- **Claude**: `ClaudeSDKClient` del Agent SDK en un hilo con asyncio, con streaming (`include_partial_messages`) para ver el texto mientras se escribe. Lanza el mismo `claude` de la terminal con `setting_sources = user, project, local`.
+- **Una sola instancia**: `Gtk.Application` con D-Bus. El atajo de voz vuelve a llamar a `oye-claude --voice`, y esa segunda llamada solo le dice a la ventana abierta que escuche.
+- **Voz**: el micrófono se abre al pulsar. Un VAD por energía (ruido de fondo = percentil 15) detecta cuándo dejas de hablar, y Whisper `small` transcribe con el filtro Silero VAD. El modelo se carga mientras ya estás hablando.
+
+## Ajustes
+
+`~/.config/oye-claude/config.toml` (ver [`linux/config.example.toml`](linux/config.example.toml)). Tras cambiarlo, cierra y abre la app.
+
+| Clave | Para qué |
+|---|---|
+| `input_device` | Elegir micrófono (lista: `oye-claude --list-mics`) |
+| `model` | `large-v3-turbo` entiende mejor (con GPU va rápido; +1,6 GB) |
+| `auto_send` | `false` para revisar el texto dictado antes de enviarlo |
+| `end_silence_ms` | Pausa que da por terminada la orden (1300 ms) |
+| `vad_margin_db` | Súbelo si corta mal con ruido; bájalo si no te oye |
+| `device` | `auto` (GPU si hay), `cuda` o `cpu` |
+| `default_project` | Carpeta de la primera vez (luego recuerda la última) |
+
 ## Problemas frecuentes
 
-Guía completa paso a paso: **[docs/MANTENIMIENTO.md](docs/MANTENIMIENTO.md)**.
+Guía completa: **[docs/MANTENIMIENTO.md](docs/MANTENIMIENTO.md)**.
 
-- **Tras actualizar Python con pacman deja de arrancar** → `~/oye-claude/linux/install.sh` rehace el entorno virtual.
+- **Tras `pacman -Syu` no abre** → ejecuta `~/oye-claude/linux/install.sh` (rehace el entorno si cambió Python).
+- **Ver errores** → ejecuta `oye-claude` desde una terminal y mira lo que imprime.
+- **Claude dice que no has iniciado sesión** → abre `claude` una vez en la terminal e inicia sesión.
 
-- **No se activa nunca** → mira `journalctl --user -u oye-claude -f`. Si aparece `(ignorado) …` con lo que dijiste mal escrito, añade esa variante a `WAKE_RE` en `oye_claude.py`. Si no aparece nada, revisa `--test-mic`.
-- **Se activa solo / con la tele** → sube `vad_margin_db`; el regex exige que la frase *empiece* con algo parecido a «oye/hey» + «claude».
-- **La primera orden se pierde al abrir Claude** → sube `claude_startup_s` (Claude tarda en arrancar).
-- **`claude` no encontrado en el servicio** → pon la ruta completa en `claude_command` (el instalador lo hace con `command -v claude`).
-- **Pide confirmar confianza en la carpeta** → la primera vez que Claude se abre en una carpeta nueva pregunta si confías en ella; contesta en la ventana.
-
-## Estructura del repo
+## Estructura
 
 ```
 linux/
-  oye_claude.py          daemon (escucha, detecta, transcribe, envía)
-  install.sh             instalador
-  claude-voz             abre/une la sesión tmux "claude"
-  oye-claude.service     servicio systemd de usuario
-  config.example.toml    configuración con valores por defecto
-  requirements.txt
-  requirements-gpu.txt   cuBLAS/cuDNN para usar la GPU NVIDIA
+  oye_claude/
+    app.py          ventana GTK/Adwaita, atajos, permisos, voz
+    claude.py       puente con el Claude Agent SDK (hilo asyncio)
+    render.py       Markdown → HTML, descripción de herramientas
+    chat.html       vista de la conversación (CSS + JS)
+    voice.py        micrófono, VAD y faster-whisper
+    config.py       configuración y estado
+  data/             icono y entrada .desktop
+  install.sh        instalador
+  config.example.toml
+  requirements.txt  requirements-gpu.txt
 docs/
-  MANTENIMIENTO.md       guía paso a paso: uso, actualizaciones, diagnóstico
-  MEMORIA-WINDOWS.md     contexto para portarlo a Windows con Claude
+  MANTENIMIENTO.md  guía paso a paso
+  MEMORIA-WINDOWS.md  contexto para portarlo a Windows con Claude
 ```
 
 ## Licencia
