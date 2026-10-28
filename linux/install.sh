@@ -23,7 +23,7 @@ if ((${#missing[@]})); then
     exit 1
 fi
 # PortAudio lo necesita sounddevice
-if ! ldconfig -p 2>/dev/null | grep -q libportaudio; then
+if ! ldconfig -p 2>/dev/null | grep libportaudio >/dev/null; then
     echo "Falta PortAudio: sudo pacman -S portaudio   (Debian/Ubuntu: sudo apt install libportaudio2)"
     exit 1
 fi
