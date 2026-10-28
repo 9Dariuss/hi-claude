@@ -10,7 +10,8 @@ command_model = "small"  # más preciso, para transcribir la orden
 language = "es"
 compute_type = "int8"
 
-wake_window_s = 3.0
+wake_window_s = 2.0
+min_speech_s = 0.3      # voz real mínima (Silero VAD) para usar Whisper
 end_silence_ms = 700
 command_end_silence_ms = 1300
 command_timeout_s = 8.0

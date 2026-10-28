@@ -60,7 +60,9 @@ class Config:
     language: str = "es"
     compute_type: str = "int8"
     # Segundos de audio que se usan para buscar la palabra de activación
-    wake_window_s: float = 3.0
+    wake_window_s: float = 2.0
+    # Silero VAD: mínimo de voz real (s) para molestarse en pasar la frase a Whisper
+    min_speech_s: float = 0.3
     # Silencio que cierra una frase (ms)
     end_silence_ms: int = 700
     command_end_silence_ms: int = 1300
@@ -206,15 +208,17 @@ def beep(freq: float, ms: int = 120) -> None:
 class Transcriber:
     def __init__(self, cfg: Config):
         from faster_whisper import WhisperModel
+        from faster_whisper.vad import VadOptions, get_speech_timestamps
+
+        self._vad = get_speech_timestamps
+        self._vad_options = VadOptions(threshold=0.5, min_speech_duration_ms=250)
 
         self.cfg = cfg
         threads = max(1, (os.cpu_count() or 4) // 2)
         log(f"cargando modelos whisper: wake={cfg.wake_model} orden={cfg.command_model} ...")
-        self.wake = WhisperModel(cfg.wake_model, device="cpu", compute_type=cfg.compute_type, cpu_threads=threads)
-        if cfg.command_model == cfg.wake_model:
-            self.command = self.wake
-        else:
-            self.command = WhisperModel(cfg.command_model, device="cpu", compute_type=cfg.compute_type, cpu_threads=threads)
+        # La detección corre con cada frase que se oye: pocos hilos gastan menos CPU en total.
+        self.wake = WhisperModel(cfg.wake_model, device="cpu", compute_type=cfg.compute_type, cpu_threads=2)
+        self.command = WhisperModel(cfg.command_model, device="cpu", compute_type=cfg.compute_type, cpu_threads=threads)
         log("modelos listos")
 
     def _run(self, model, audio: np.ndarray) -> str:
@@ -227,6 +231,11 @@ class Transcriber:
         # descarta segmentos que Whisper considera ruido o se inventa
         texts = [s.text for s in segments if s.no_speech_prob < 0.6 and s.avg_logprob > -1.0]
         return normalize(" ".join(texts))
+
+    def speech_seconds(self, audio: np.ndarray) -> float:
+        """Voz humana real según Silero VAD (~10 ms); filtra teclado, golpes, ventiladores..."""
+        stamps = self._vad(audio, self._vad_options)
+        return sum(t["end"] - t["start"] for t in stamps) / SAMPLE_RATE
 
     def wake_text(self, audio: np.ndarray) -> str:
         return self._run(self.wake, audio[: int(self.cfg.wake_window_s * SAMPLE_RATE)])
@@ -292,6 +301,7 @@ def notify(cfg: Config, title: str, body: str = "") -> None:
 def dispatch(cfg: Config, session: ClaudeSession, command: str) -> None:
     command = command.strip(" ,.;:")
     if not command:
+        log("orden vacía, no envío nada")
         return
     if CANCEL_RE.match(command):
         log("→ Escape (cancelar)")
@@ -317,7 +327,7 @@ def run(cfg: Config) -> None:
         while True:
             audio = mic.next_utterance(cfg.end_silence_ms)
             dur = len(audio) / SAMPLE_RATE
-            if dur < 0.4:
+            if dur < 0.4 or transcriber.speech_seconds(audio) < cfg.min_speech_s:
                 continue
             heard = transcriber.wake_text(audio)
             if not heard:

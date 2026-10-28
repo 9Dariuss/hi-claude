@@ -14,7 +14,7 @@ Que Claude Code se active por voz: al decir **«Hey Claude» / «Oye Claude»** 
 - Micrófono: **Razer Seiren Mini** (USB). Ruido de fondo medido: ~-38 dBFS (ganancia alta), voz a ~-25 dBFS o más.
 - `linux/oye_claude.py` es el daemon. Partes:
   1. `Listener` — `sounddevice.InputStream` 16 kHz mono, tramas de 30 ms. VAD por energía: ruido = **percentil 15 de los últimos 5 s** de niveles; voz = nivel > ruido + 12 dB (y > -50 dBFS). Frase empieza tras 3 tramas de voz (con 300 ms de pre-roll) y termina con 700 ms de silencio (1300 ms para la orden).
-  2. `Transcriber` — faster-whisper: `base` para buscar la palabra de activación en los 3 primeros segundos, `small` (beam 5) para la orden. `cpu_threads = núcleos/2`. Tiempos medidos: `base` ~0,9 s, `small` ~2,6 s por frase de 2 s.
+  2. `Transcriber` — faster-whisper: `base` (2 hilos) para buscar la palabra de activación en los 2 primeros segundos, solo si Silero VAD confirma voz, `small` (beam 5) para la orden. `cpu_threads = núcleos/2`. Tiempos medidos: `base` ~0,9 s, `small` ~2,6 s por frase de 2 s.
   3. `WAKE_RE` — regex tolerante: `(hey|hei|ei|ey|oye|oie|ok|okay|hola…)` + `(claude|claud|claudio|clod|cloud|clau…)`. Si hay texto después → es la orden; si no → pitido y escucha la siguiente frase (máx 8 s).
   4. Órdenes especiales: «cancela/para/detente» → `Escape`; «nueva conversación/limpia» → `/clear`.
   5. `ClaudeSession` — **la única parte específica de Linux**: Claude corre en una sesión **tmux** llamada `claude`; se escribe con `tmux send-keys -l -- texto`, pausa 0,2 s, `send-keys Enter`. Si no existe la sesión, la crea (`tmux new-session -d -s claude -c workdir claude`) y abre `alacritty -e tmux attach -t claude`; tras crearla espera `claude_startup_s` (5 s) antes de escribir.
@@ -31,6 +31,9 @@ Que Claude Code se active por voz: al decir **«Hey Claude» / «Oye Claude»** 
 4. En Wayland no se puede inyectar teclado en otras ventanas sin ydotool/permisos → por eso tmux. **En Windows sí se puede** (SendInput), así que tmux no es imprescindible.
 5. Python 3.14 funciona: hay ruedas de `ctranslate2`, `faster-whisper`, `sounddevice`.
 6. Hay que pausar ~0,2 s entre pegar el texto y pulsar Enter, o Claude Code puede tratarlo como pegado sin enviar.
+7. **Consumo de CPU**: la primera versión gastaba ~85 % de un núcleo en reposo porque el VAD por energía se disparaba cada ~2,5 s con ruido y cada disparo lanzaba Whisper con 6 hilos. Solución: (a) filtro **Silero VAD** (`faster_whisper.vad.get_speech_timestamps`, ~10 ms) y solo se usa Whisper si hay ≥ 0,3 s de voz real; (b) el modelo de activación con `cpu_threads=2` (≈30 % menos CPU total que 6 hilos, +0,3 s de latencia); (c) ventana de activación de 2 s. Resultado: ~1,5 % de CPU en silencio. Cuando hay gente hablando cerca (Discord, vídeos) sí sube: es inherente a usar Whisper como detector.
+8. Medido en Ryzen 5 2600X (CPU, int8): `base` 2 hilos ≈ 3 s de CPU / 1,3 s de espera por frase de 2 s; `tiny` ≈ 1,8 s / 0,6 s. La máquina tiene una **RTX 3050**: pasar Whisper a CUDA (`device="cuda"`) eliminaría casi todo el coste de CPU — pendiente de probar.
+9. El instalador debe **rehacer el venv** si la versión de Python del sistema cambió (Arch actualiza Python con frecuencia) y **reiniciar** el servicio (no solo `enable --now`) para cargar el código nuevo.
 
 ## Plan para Windows (`windows/`)
 

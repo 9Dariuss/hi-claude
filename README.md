@@ -16,6 +16,7 @@ Claude:  ● Voy a ejecutar los tests...
 | Plataforma | Estado |
 |---|---|
 | Linux (Arch/CachyOS, GNOME Wayland, PipeWire) | ✅ [`linux/`](linux/) |
+| Mantenimiento y diagnóstico | 📘 [docs/MANTENIMIENTO.md](docs/MANTENIMIENTO.md) |
 | Windows | 🛠️ pendiente — ver [docs/MEMORIA-WINDOWS.md](docs/MEMORIA-WINDOWS.md) |
 
 ---
@@ -23,7 +24,7 @@ Claude:  ● Voy a ejecutar los tests...
 ## Cómo funciona
 
 ```
- micrófono ──► VAD por energía ──► frase ──► Whisper "base" (primeros 3 s)
+ micrófono ──► VAD por energía ──► frase ──► Silero VAD ¿es voz? ──► Whisper "base" (primeros 2 s)
                                                    │
                                      ¿empieza por «oye/hey claude»?
                                          no │            │ sí
@@ -39,9 +40,10 @@ Claude:  ● Voy a ejecutar los tests...
 ```
 
 1. **Escucha continua** con `sounddevice` a 16 kHz. Un detector de voz por energía calcula el ruido de fondo (percentil 15 de los últimos 5 s) y corta el audio en frases cuando hay ~0,7 s de silencio.
-2. **Detección de la palabra de activación**: cada frase se pasa por Whisper `base` (rápido, ~1 s) y se busca con una expresión regular tolerante (`hey|oye|ey|ok…` + `claude|clod|cloud|claudio…`). Así no hace falta entrenar un modelo de wake word.
-3. **Transcripción de la orden** con Whisper `small` (más preciso). Si dijiste solo «Oye Claude», suena un pitido y espera la orden hasta 8 s.
-4. **Envío a Claude**: Claude Code corre dentro de una sesión de **tmux** llamada `claude`. El daemon escribe con `tmux send-keys`, que funciona igual en X11 y en Wayland (en Wayland las herramientas tipo `xdotool` no pueden escribir en otras ventanas).
+2. **Filtro de voz real**: Silero VAD (incluido en faster-whisper, ~10 ms) descarta teclado, golpes y ruido para no gastar CPU en Whisper.
+3. **Detección de la palabra de activación**: cada frase con voz se pasa por Whisper `base` con 2 hilos (~1 s) y se busca con una expresión regular tolerante (`hey|oye|ey|ok…` + `claude|clod|cloud|claudio…`). Así no hace falta entrenar un modelo de wake word.
+4. **Transcripción de la orden** con Whisper `small` (más preciso). Si dijiste solo «Oye Claude», suena un pitido y espera la orden hasta 8 s.
+5. **Envío a Claude**: Claude Code corre dentro de una sesión de **tmux** llamada `claude`. El daemon escribe con `tmux send-keys`, que funciona igual en X11 y en Wayland (en Wayland las herramientas tipo `xdotool` no pueden escribir en otras ventanas).
 
 ### Órdenes especiales
 
@@ -140,6 +142,10 @@ rm -rf ~/.local/share/oye-claude ~/.config/oye-claude ~/.local/bin/oye-claude ~/
 
 ## Problemas frecuentes
 
+Guía completa paso a paso: **[docs/MANTENIMIENTO.md](docs/MANTENIMIENTO.md)**.
+
+- **Tras actualizar Python con pacman deja de arrancar** → `~/oye-claude/linux/install.sh` rehace el entorno virtual.
+
 - **No se activa nunca** → mira `journalctl --user -u oye-claude -f`. Si aparece `(ignorado) …` con lo que dijiste mal escrito, añade esa variante a `WAKE_RE` en `oye_claude.py`. Si no aparece nada, revisa `--test-mic`.
 - **Se activa solo / con la tele** → sube `vad_margin_db`; el regex exige que la frase *empiece* con algo parecido a «oye/hey» + «claude».
 - **La primera orden se pierde al abrir Claude** → sube `claude_startup_s` (Claude tarda en arrancar).
@@ -157,6 +163,7 @@ linux/
   config.example.toml    configuración con valores por defecto
   requirements.txt
 docs/
+  MANTENIMIENTO.md       guía paso a paso: uso, actualizaciones, diagnóstico
   MEMORIA-WINDOWS.md     contexto para portarlo a Windows con Claude
 ```
 

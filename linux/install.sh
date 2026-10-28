@@ -33,8 +33,11 @@ mkdir -p "$APP_DIR" "$BIN_DIR" "$CFG_DIR" "$UNIT_DIR"
 install -m 644 "$HERE/oye_claude.py" "$APP_DIR/oye_claude.py"
 install -m 755 "$HERE/claude-voz" "$BIN_DIR/claude-voz"
 
-if [[ ! -d "$APP_DIR/venv" ]]; then
-    say "Creando entorno virtual de Python"
+# Tras actualizar Python con pacman (p. ej. 3.14 → 3.15) el venv queda roto: se rehace.
+pyver() { "$1" -c 'import sys; print(*sys.version_info[:2])' 2>/dev/null; }
+if [[ "$(pyver "$APP_DIR/venv/bin/python")" != "$(pyver python3)" ]]; then
+    say "Creando entorno virtual de Python ($(python3 --version))"
+    rm -rf "$APP_DIR/venv"
     python3 -m venv "$APP_DIR/venv"
 fi
 say "Instalando dependencias (faster-whisper, sounddevice)"
@@ -68,7 +71,8 @@ install -m 644 "$HERE/oye-claude.service" "$UNIT_DIR/oye-claude.service"
 systemctl --user daemon-reload
 if [[ "${1:-}" != "--no-service" ]]; then
     say "Activando servicio systemd de usuario"
-    systemctl --user enable --now oye-claude.service
+    systemctl --user enable oye-claude.service
+    systemctl --user restart oye-claude.service
     echo
     echo "Listo. Logs en vivo:  journalctl --user -u oye-claude -f"
 else
