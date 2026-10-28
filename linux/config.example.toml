@@ -1,0 +1,32 @@
+# Configuración de Oye Claude  →  ~/.config/oye-claude/config.toml
+# Todas las claves son opcionales; estos son los valores por defecto.
+
+# Micrófono: nombre o índice de `oye-claude --list-devices`. Comentado = predeterminado.
+# input_device = "Razer Seiren Mini"
+
+# Modelos de faster-whisper: tiny, base, small, medium, large-v3, large-v3-turbo
+wake_model = "base"      # rápido, solo para detectar «Oye Claude»
+command_model = "small"  # más preciso, para transcribir la orden
+language = "es"
+compute_type = "int8"
+
+wake_window_s = 3.0
+end_silence_ms = 700
+command_end_silence_ms = 1300
+command_timeout_s = 8.0
+max_utterance_s = 20.0
+
+# Sensibilidad del detector de voz. Si se activa con el ruido, sube vad_margin_db.
+vad_margin_db = 12.0
+vad_min_dbfs = -50.0
+
+# Sesión de Claude
+tmux_session = "claude"
+claude_command = "claude"          # p. ej. "claude --continue" para retomar la última conversación
+workdir = "~"                      # carpeta donde arranca Claude si no hay sesión
+terminal = "alacritty --title 'Claude (voz)' -e"   # kitty / "gnome-terminal --" / "konsole -e" ...
+claude_startup_s = 5.0
+open_terminal_if_detached = true
+
+beep = true
+notify = true

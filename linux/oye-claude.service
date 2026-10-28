@@ -1,0 +1,14 @@
+[Unit]
+Description=Oye Claude - activación por voz de Claude Code
+After=graphical-session.target pipewire.service
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/share/oye-claude/venv/bin/python -u %h/.local/share/oye-claude/oye_claude.py
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
