@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#faf6f0"/><stop offset="1" stop-color="#efe6da"/></linearGradient>
+  </defs>
+  <rect x="8" y="12" width="112" height="108" rx="28" fill="#cdbca8"/>
+  <rect x="8" y="8" width="112" height="108" rx="28" fill="url(#bg)"/>
+  <g transform="rotate(-12 58 70)" stroke="#d97757" stroke-linecap="round">
+  <circle cx="58" cy="70" r="11.700000000000001" fill="#d97757" stroke="none"/>
+  <line x1="58" y1="70" x2="36.2" y2="37.7" stroke-width="7.800000000000001"/>
+  <line x1="58" y1="70" x2="48.6" y2="25.7" stroke-width="8.19"/>
+  <line x1="58" y1="70" x2="65.4" y2="27.8" stroke-width="8.19"/>
+  <line x1="58" y1="70" x2="76.1" y2="39.9" stroke-width="7.800000000000001"/>
+  <line x1="58" y1="70" x2="29.0" y2="63.8" stroke-width="7.800000000000001"/>
+  <line x1="58" y1="70" x2="73.2" y2="61.9" stroke-width="7.0200000000000005"/>
+  <line x1="58" y1="70" x2="77.4" y2="71.7" stroke-width="7.0200000000000005"/>
+  <line x1="58" y1="70" x2="75.3" y2="82.1" stroke-width="7.0200000000000005"/>
+  <line x1="58" y1="70" x2="68.3" y2="89.3" stroke-width="7.41"/>
+  <line x1="58" y1="70" x2="58.0" y2="91.8" stroke-width="7.41"/>
+  <line x1="58" y1="70" x2="48.1" y2="88.6" stroke-width="7.0200000000000005"/>
+  <line x1="58" y1="70" x2="41.8" y2="80.9" stroke-width="7.0200000000000005"/>
+  <line x1="58" y1="70" x2="40.2" y2="75.8" stroke-width="7.0200000000000005"/>
+  </g>
+  <line x1="86.6" y1="26.8" x2="91.0" y2="20.3" stroke="#d97757" stroke-width="4.29" stroke-linecap="round"/>
+  <line x1="96.2" y1="40.3" x2="103.1" y2="35.2" stroke="#d97757" stroke-width="4.29" stroke-linecap="round"/>
+  <line x1="101.5" y1="54.8" x2="108.3" y2="52.9" stroke="#d97757" stroke-width="4.29" stroke-linecap="round"/>
+</svg>

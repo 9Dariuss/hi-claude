@@ -7,6 +7,7 @@ propio event loop y todo lo que llega se reenvía a la interfaz con GLib.idle_ad
 from __future__ import annotations
 
 import asyncio
+import base64
 import shutil
 import threading
 from concurrent.futures import Future
@@ -42,22 +43,28 @@ class ClaudeWorker:
         self.always_allowed: set[str] = set()
         self.client: ClaudeSDKClient | None = None
         self.busy = False
+        self.session_id: str | None = None
+        self._resume: str | None = None
 
         self.loop = asyncio.new_event_loop()
         threading.Thread(target=self.loop.run_forever, daemon=True, name="claude-sdk").start()
 
     # ---------------------------------------------------------------- API para la UI (hilo GTK)
 
-    def send(self, text: str) -> None:
-        self._submit(self._send(text))
+    def send(self, text: str, images: list[bytes] = ()) -> None:
+        """images: PNG que acompañan al mensaje (p. ej. un recorte de pantalla)."""
+        self._submit(self._send(text, list(images)))
 
     def interrupt(self) -> None:
         self._submit(self._interrupt())
 
-    def new_conversation(self, cwd: str | None = None) -> None:
+    def new_conversation(self, cwd: str | None = None, resume: str | None = None) -> None:
+        """Empieza de cero, o retoma la conversación `resume` (su session_id)."""
         if cwd:
             self.cwd = cwd
         self._submit(self._reset())
+        self._resume = resume
+        self.session_id = resume
 
     def set_accept_edits(self, value: bool) -> None:
         self.accept_edits = value
@@ -91,19 +98,34 @@ class ClaudeWorker:
                 can_use_tool=self._can_use_tool,
                 # igual que `claude` en la terminal: tu CLAUDE.md, ajustes y permisos
                 setting_sources=["user", "project", "local"],
+                resume=self._resume,
                 stderr=lambda line: None,
             )
+            self._resume = None
             client = ClaudeSDKClient(options)
             await client.connect()
             self.client = client
         return self.client
 
-    async def _send(self, text: str) -> None:
+    async def _send(self, text: str, images: list[bytes]) -> None:
         self.busy = True
         try:
             client = await self._connect()
-            await client.query(text)
+            if images:
+                content = [{"type": "image", "source": {"type": "base64", "media_type": "image/png",
+                                                        "data": base64.b64encode(png).decode()}}
+                           for png in images]
+                content.append({"type": "text", "text": text})
+
+                async def message():
+                    yield {"type": "user", "message": {"role": "user", "content": content},
+                           "parent_tool_use_id": None}
+
+                await client.query(message())
+            else:
+                await client.query(text)
             async for message in client.receive_response():
+                self.session_id = getattr(message, "session_id", None) or self.session_id
                 self._ui(self.on_message, message)
         except Exception as exc:
             self._ui(self.on_error, f"{type(exc).__name__}: {exc}")

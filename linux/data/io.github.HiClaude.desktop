@@ -1,0 +1,20 @@
+[Desktop Entry]
+Type=Application
+Name=Hi Claude!
+GenericName=Asistente de código
+Comment=Claude Code en una ventana, con voz y recortes de pantalla
+Exec=@BIN@ %f
+Icon=io.github.HiClaude
+Terminal=false
+Categories=Development;Utility;
+Keywords=claude;ai;ia;voz;voice;code;recorte;captura;screenshot;
+StartupWMClass=io.github.HiClaude
+Actions=voice;snip;
+
+[Desktop Action voice]
+Name=Hablar con Claude
+Exec=@BIN@ --voice
+
+[Desktop Action snip]
+Name=Recortar pantalla y preguntar
+Exec=@BIN@ --snip

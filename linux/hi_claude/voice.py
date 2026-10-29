@@ -197,6 +197,19 @@ class Transcriber:
         return clean_command(" ".join(texts))
 
 
+# Un solo modelo en memoria aunque haya varias ventanas escuchando
+_transcriber: Transcriber | None = None
+_transcriber_lock = threading.Lock()
+
+
+def get_transcriber(cfg: Config) -> Transcriber:
+    global _transcriber
+    with _transcriber_lock:
+        if _transcriber is None:
+            _transcriber = Transcriber(cfg)
+        return _transcriber
+
+
 # --------------------------------------------------------------------------- controlador
 
 class VoiceInput:
@@ -210,8 +223,7 @@ class VoiceInput:
                  on_text: Callable[[str], None], on_error: Callable[[str], None]):
         self.cfg = cfg
         self.on_state, self.on_text, self.on_error = on_state, on_text, on_error
-        self._transcriber: Transcriber | None = None
-        self._loading = threading.Lock()
+        self.beep = True
         self._listener: Listener | None = None
         self.active = False
 
@@ -220,13 +232,7 @@ class VoiceInput:
         return self._listener.level_db if self._listener else -90.0
 
     def preload(self) -> None:
-        threading.Thread(target=self._get_transcriber, daemon=True).start()
-
-    def _get_transcriber(self) -> Transcriber:
-        with self._loading:
-            if self._transcriber is None:
-                self._transcriber = Transcriber(self.cfg)
-            return self._transcriber
+        threading.Thread(target=get_transcriber, args=(self.cfg,), daemon=True).start()
 
     def start(self) -> None:
         if self.active:
@@ -245,7 +251,7 @@ class VoiceInput:
             self.preload()
             with Listener(self.cfg) as mic:
                 self._listener = mic
-                if self.cfg.beep:
+                if self.beep:
                     beep(880)
                     mic.mute(0.15)
                 self.on_state("listening")
@@ -254,7 +260,7 @@ class VoiceInput:
             if audio is None or len(audio) < SAMPLE_RATE * 0.3:
                 return
             self.on_state("transcribing")
-            text = self._get_transcriber().transcribe(audio)
+            text = get_transcriber(self.cfg).transcribe(audio)
             if text:
                 self.on_text(text)
             else:

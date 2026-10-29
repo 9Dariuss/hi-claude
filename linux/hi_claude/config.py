@@ -1,4 +1,4 @@
-"""Configuración (~/.config/oye-claude/config.toml) y estado guardado entre sesiones."""
+"""Configuración (~/.config/hi-claude/config.toml) y preferencias guardadas (~/.local/state/hi-claude)."""
 
 from __future__ import annotations
 
@@ -8,14 +8,30 @@ import tomllib
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
-CONFIG_PATH = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "oye-claude" / "config.toml"
-STATE_PATH = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state")) / "oye-claude" / "state.json"
+CONFIG_PATH = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "hi-claude" / "config.toml"
+STATE_PATH = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state")) / "hi-claude" / "state.json"
+CACHE_DIR = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "hi-claude"
+
+CLAUDE_ORANGE = "#d97757"
+
+# Colores que se ofrecen en Preferencias (además, uno libre con el selector de color)
+ACCENT_PRESETS = [
+    ("Naranja Claude", CLAUDE_ORANGE),
+    ("Coral", "#e66a5c"),
+    ("Rosa", "#d6609a"),
+    ("Morado", "#9a6ad8"),
+    ("Azul", "#3f8be0"),
+    ("Turquesa", "#2aa3a3"),
+    ("Verde", "#4ba25a"),
+    ("Ámbar", "#d99a2b"),
+]
 
 
 @dataclass
 class Config:
+    """Ajustes técnicos que se editan a mano en config.toml."""
     # --- voz
-    # Micrófono: None = el predeterminado del sistema, o nombre/índice de --list-devices
+    # Micrófono: None = el predeterminado del sistema, o nombre/índice de --list-mics
     input_device: str | int | None = None
     model: str = "small"            # tiny, base, small, medium, large-v3-turbo...
     language: str = "es"
@@ -26,8 +42,6 @@ class Config:
     max_utterance_s: float = 60.0
     vad_margin_db: float = 12.0
     vad_min_dbfs: float = -50.0
-    auto_send: bool = True          # enviar a Claude en cuanto termina la transcripción
-    beep: bool = True
     # --- Claude
     claude_path: str = ""           # vacío = buscar `claude` en el PATH
     default_project: str = "~"
@@ -45,9 +59,14 @@ class Config:
 
 @dataclass
 class State:
+    """Lo que se cambia desde la propia app (Preferencias, proyecto…) y se recuerda."""
     project: str = ""
     recent_projects: list[str] = field(default_factory=list)
+    accent: str = CLAUDE_ORANGE     # color principal
+    color_scheme: str = "system"    # "system", "light" o "dark"
     accept_edits: bool = False
+    auto_send: bool = True          # enviar lo dictado en cuanto termina la transcripción
+    beep: bool = True
 
     @classmethod
     def load(cls) -> "State":

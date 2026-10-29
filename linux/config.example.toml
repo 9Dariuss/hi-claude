@@ -1,13 +1,14 @@
-# Configuración de Oye Claude  →  ~/.config/oye-claude/config.toml
+# Configuración de Hi Claude!  →  ~/.config/hi-claude/config.toml
 # Todas las claves son opcionales; estos son los valores por defecto.
-# Tras cambiarla, cierra y vuelve a abrir la app.
+# Tras cambiarla, cierra y vuelve a abrir la app. El color, el tema y las opciones
+# de voz más comunes se cambian en la propia app: menú ⋮ → Preferencias.
 
 # --- Claude
 claude_path = ""          # vacío = buscar `claude` en el PATH
 default_project = "~"     # carpeta de la primera vez (luego recuerda la última)
 
 # --- Voz
-# Micrófono: nombre o índice (lista: oye-claude --list-mics). Comentado = el predeterminado del sistema.
+# Micrófono: nombre o índice (lista: hi-claude --list-mics). Comentado = el predeterminado del sistema.
 # input_device = "Razer Seiren Mini"
 
 # Modelo de faster-whisper: tiny, base, small, medium, large-v3-turbo
@@ -24,6 +25,3 @@ max_utterance_s = 60.0
 # Sensibilidad: si corta antes de tiempo con ruido, sube vad_margin_db; si no te oye, bájalo.
 vad_margin_db = 12.0
 vad_min_dbfs = -50.0
-
-auto_send = true          # enviar en cuanto termina de transcribir (false = revisar antes)
-beep = true
