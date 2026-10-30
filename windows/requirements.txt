@@ -1,0 +1,10 @@
+claude-agent-sdk>=0.2.170
+faster-whisper>=1.1
+sounddevice>=0.5
+numpy>=1.26
+markdown-it-py>=3.0
+pygments>=2.18
+pywebview>=5.3
+mss>=9.0
+pillow>=10.0
+pywin32>=306

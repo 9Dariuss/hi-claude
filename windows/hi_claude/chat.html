@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+:root {
+  --accent: #d97757;
+  --bg: #faf9f6;
+  --fg: #1f1e1c;
+  --muted: #77736b;
+  --card: #f1eee8;
+  --border: #e5e0d7;
+  --code-bg: #f3f0ea;
+  --add: #e3f4e6; --add-fg: #1a6b35;
+  --del: #fbe7e4; --del-fg: #a51d2d;
+  --error: #c0392b;
+  --listen: #d6453a;
+  --shadow: 0 10px 40px rgba(40, 30, 20, .18), 0 2px 8px rgba(40, 30, 20, .08);
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
+  --accent-text: color-mix(in srgb, var(--accent) 82%, black);
+  --user-bg: color-mix(in srgb, var(--accent) 13%, var(--card));
+  --sans: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
+  color-scheme: light;
+}
+html.dark {
+  --bg: #1f1e1c;
+  --fg: #eceae5;
+  --muted: #9d998f;
+  --card: #2a2926;
+  --border: #393733;
+  --code-bg: #262522;
+  --add: #1d3524; --add-fg: #8fe0a2;
+  --del: #3e2320; --del-fg: #ff9e94;
+  --error: #ff8a7a;
+  --listen: #ff6b5e;
+  --shadow: 0 10px 40px rgba(0, 0, 0, .5), 0 2px 8px rgba(0, 0, 0, .3);
+  --accent-text: color-mix(in srgb, var(--accent) 78%, white);
+  --user-bg: color-mix(in srgb, var(--accent) 20%, var(--card));
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); overflow: hidden; }
+body { font: 15.5px/1.65 var(--sans); display: flex; flex-direction: column; user-select: none; }
+::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+button { font: inherit; color: inherit; }
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--muted) 35%, transparent); border-radius: 8px;
+                            border: 3px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--muted) 60%, transparent); }
+::-webkit-scrollbar-corner { background: transparent; }
+svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* ---------------------------------------------------------------- cabecera */
+#bar { display: flex; align-items: center; gap: 4px; padding: 6px 10px; flex: none; }
+#bar .grow { flex: 1; }
+.btn {
+  border: none; background: transparent; border-radius: 10px; height: 34px; min-width: 34px; padding: 0 8px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; transition: background .12s;
+}
+.btn:hover { background: var(--card); }
+.btn:active { background: var(--border); }
+.btn:focus-visible, .suggestion:focus-visible, .swatch:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+#project-btn { padding: 0 6px 0 10px; max-width: 46%; }
+#project-btn .txt { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; min-width: 0; }
+#project-btn b { font-size: 14px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+#project-btn small { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+#quick-title { display: none; align-items: center; gap: 8px; font-weight: 650; font-size: 14px; padding-left: 4px; }
+#quick-title .mini { width: 22px; height: 22px; color: var(--accent); }
+body.quick #project-btn, body.quick #snip-btn, body.quick #new-btn, body.quick #menu-btn { display: none; }
+body.quick #quick-title { display: flex; }
+#continue-btn { display: none; }
+body.quick.sent #continue-btn { display: inline-flex; }
+
+.menu {
+  position: fixed; z-index: 40; min-width: 240px; padding: 6px; border-radius: 14px; background: var(--bg);
+  border: 1px solid var(--border); box-shadow: var(--shadow); display: none; animation: pop .12s ease-out;
+}
+.menu.open { display: block; }
+.menu .item {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 12px; border: none; background: none;
+  border-radius: 9px; cursor: pointer; text-align: left; font-size: 14px;
+}
+.menu .item:hover { background: var(--card); }
+.menu .item small { color: var(--muted); margin-left: auto; font-size: 12px; padding-left: 16px; }
+.menu .sep { height: 1px; background: var(--border); margin: 5px 6px; }
+.menu .label { font-size: 12px; color: var(--muted); padding: 6px 12px 2px; }
+.menu .item .check { width: 18px; color: var(--accent); font-weight: 800; }
+@keyframes pop { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
+
+/* ---------------------------------------------------------------- conversación */
+#scroll { flex: 1; overflow-y: auto; overflow-x: hidden; user-select: text; }
+#chat { max-width: 760px; margin: 0 auto; padding: 8px 24px 32px; }
+body.quick #chat { padding: 8px 16px 20px; }
+body.quick { font-size: 14.5px; }
+
+/* ---------------------------------------------------------------- inicio */
+#empty { text-align: center; padding-top: 9vh; user-select: none; }
+#empty .hand { width: 86px; height: 86px; margin: 0 auto; color: var(--accent); animation: wave 2.4s ease-in-out 0.3s 1; transform-origin: 60% 80%; }
+@keyframes wave { 0%,100% { transform: rotate(0); } 15% { transform: rotate(14deg); } 30% { transform: rotate(-8deg); }
+                  45% { transform: rotate(12deg); } 60% { transform: rotate(-4deg); } 75% { transform: rotate(8deg); } }
+#empty h1 { font-size: 30px; font-weight: 750; letter-spacing: -0.02em; margin: 14px 0 4px; }
+#empty h1 span { color: var(--accent); }
+#empty .project {
+  display: inline-flex; align-items: center; gap: 6px; margin: 6px 0 26px; padding: 3px 12px;
+  border-radius: 99px; background: var(--card); color: var(--muted); font-size: 13.5px;
+}
+.suggestions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; max-width: 600px; margin: 0 auto; }
+.suggestion {
+  border: 1px solid var(--border); background: var(--card); border-radius: 16px; padding: 12px 14px; color: var(--fg);
+  cursor: pointer; transition: transform .12s, border-color .12s, background .12s; font-size: 14.5px; line-height: 1.4; text-align: left;
+}
+.suggestion:hover { border-color: var(--accent); background: var(--accent-soft); transform: translateY(-1px); }
+.suggestion b { display: block; font-weight: 650; margin-bottom: 2px; }
+.suggestion small { color: var(--muted); font-size: 13px; }
+#empty .hint { margin-top: 26px; color: var(--muted); font-size: 13.5px; line-height: 2.2; }
+kbd {
+  font: 12px var(--mono); padding: 2px 7px; border-radius: 6px;
+  background: var(--card); border: 1px solid var(--border); border-bottom-width: 2px; white-space: nowrap;
+}
+body.has-messages #empty, body.quick #empty { display: none; }
+
+/* recorte: vista previa antes de la primera pregunta */
+#preview { display: none; flex-direction: column; align-items: center; gap: 12px; padding: 4px 18px 8px; height: 100%; }
+#preview img { max-width: 100%; max-height: calc(100% - 40px); object-fit: contain; border-radius: 12px; border: 1px solid var(--border);
+               box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+#preview p { margin: 0; color: var(--muted); font-size: 14px; text-align: center; }
+body.quick:not(.sent) #preview { display: flex; }
+body.quick:not(.sent) #chat { display: none; }
+
+/* ---------------------------------------------------------------- mensajes */
+.msg { animation: rise .22s ease-out; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+.user { display: flex; justify-content: flex-end; margin: 26px 0 18px; }
+.user .bubble {
+  background: var(--user-bg); padding: 10px 16px; border-radius: 20px 20px 6px 20px;
+  max-width: 82%; white-space: pre-wrap; word-wrap: break-word;
+}
+.user .bubble img { display: block; max-width: 100%; max-height: 260px; border-radius: 12px; margin: 4px 0 8px; border: 1px solid var(--border); }
+.user .via { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; color: var(--accent-text); font-weight: 600; margin-bottom: 2px; }
+
+.who { display: flex; align-items: center; gap: 9px; margin: 6px 0 6px; font-weight: 650; font-size: 14.5px; }
+.who .avatar {
+  width: 28px; height: 28px; border-radius: 9px; background: var(--accent-soft); color: var(--accent);
+  display: grid; place-items: center;
+}
+.who .avatar svg { width: 20px; height: 20px; }
+.assistant { word-wrap: break-word; margin: 8px 0; }
+.assistant > :first-child { margin-top: 0; }
+.assistant > :last-child { margin-bottom: 0; }
+.assistant p { margin: .6em 0; }
+.assistant h1, .assistant h2, .assistant h3 { line-height: 1.3; margin: 1.3em 0 .5em; letter-spacing: -0.01em; }
+.assistant h1 { font-size: 1.4em; } .assistant h2 { font-size: 1.22em; } .assistant h3 { font-size: 1.08em; }
+.assistant a { color: var(--accent-text); text-underline-offset: 2px; }
+.assistant strong { font-weight: 700; }
+.assistant ul, .assistant ol { padding-left: 1.4em; }
+.assistant li { margin: .2em 0; }
+.assistant li::marker { color: var(--accent); }
+.assistant blockquote { margin: .8em 0; padding: 2px 14px; border-left: 3px solid var(--accent); color: var(--muted); }
+.assistant hr { border: none; border-top: 1px solid var(--border); margin: 1.4em 0; }
+.assistant table { border-collapse: separate; border-spacing: 0; margin: 12px 0; font-size: 14px; display: block; overflow-x: auto;
+                   border: 1px solid var(--border); border-radius: 12px; }
+.assistant th, .assistant td { padding: 7px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+.assistant tr:last-child td { border-bottom: none; }
+.assistant th { background: var(--card); font-weight: 650; }
+code { font: .88em var(--mono); background: var(--code-bg); padding: 1.5px 6px; border-radius: 6px; border: 1px solid var(--border); }
+pre { font: 13px/1.55 var(--mono); background: var(--code-bg);
+      border: 1px solid var(--border); padding: 14px 16px; border-radius: 14px; overflow-x: auto; position: relative; white-space: pre; }
+pre code { background: none; padding: 0; font-size: inherit; border: none; }
+pre .lang { position: absolute; top: 6px; right: 12px; font-size: 11px; color: var(--muted); font-family: var(--sans);
+            text-transform: uppercase; letter-spacing: .06em; }
+pre .copy { position: absolute; bottom: 6px; right: 8px; opacity: 0; transition: opacity .12s; border: 1px solid var(--border);
+            background: var(--bg); color: var(--muted); border-radius: 8px; font: 12px var(--sans); padding: 2px 8px; cursor: pointer; }
+pre:hover .copy { opacity: 1; }
+.streaming > :last-child::after { content: ""; display: inline-block; width: 8px; height: 8px; margin-left: 5px;
+  border-radius: 50%; background: var(--accent); animation: pulse 1s ease-in-out infinite; vertical-align: middle; }
+@keyframes pulse { 50% { opacity: .25; transform: scale(.7); } }
+
+/* ---------------------------------------------------------------- herramientas (línea de tiempo) */
+.tools { margin: 10px 0 10px 13px; padding-left: 20px; border-left: 2px solid var(--border); }
+details.tool { position: relative; margin: 4px 0; font-size: 14px; }
+details.tool::before {
+  content: ""; position: absolute; left: -26px; top: 12px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--bg); border: 2px solid var(--border);
+}
+details.tool.ok::before { border-color: var(--accent); background: var(--accent); }
+details.tool.err::before { border-color: var(--error); background: var(--error); }
+details.tool.run::before { border-color: var(--accent); animation: pulse 1s ease-in-out infinite; }
+details.tool summary {
+  list-style: none; cursor: pointer; padding: 6px 12px; display: flex; gap: 9px; align-items: center;
+  border-radius: 10px; color: var(--muted); transition: background .12s; user-select: none;
+}
+details.tool summary:hover { background: var(--card); }
+details.tool[open] summary { background: var(--card); color: var(--fg); }
+details.tool summary::-webkit-details-marker { display: none; }
+details.tool summary .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+details.tool summary .title code { font-size: .92em; }
+details.tool summary .chev { opacity: .5; transition: transform .15s; font-size: 11px; }
+details.tool[open] summary .chev { transform: rotate(90deg); }
+details.tool.err summary .title { color: var(--error); }
+details.tool .body { padding: 4px 4px 6px; }
+details.tool .body:empty { display: none; }
+details.tool .body pre { margin: 6px 0; max-height: 320px; overflow: auto; font-size: 12.5px; }
+pre.diff-add { background: var(--add); color: var(--add-fg); border-color: transparent; }
+pre.diff-del { background: var(--del); color: var(--del-fg); border-color: transparent; }
+pre.result.err { color: var(--error); }
+ul.todos { list-style: none; padding: 0; margin: 4px 8px; }
+
+/* ---------------------------------------------------------------- notas y estado */
+.note { text-align: center; color: var(--muted); font-size: 13px; margin: 16px 0; }
+.note.error { color: var(--error); background: color-mix(in srgb, var(--error) 10%, transparent);
+              border-radius: 12px; padding: 8px 14px; text-align: left; }
+.done { color: var(--muted); font-size: 12.5px; margin: 8px 0 0; display: flex; align-items: center; gap: 6px; }
+.done::before { content: "✓"; color: var(--accent); font-weight: 800; }
+#thinking { display: none; gap: 6px; padding: 10px 0 4px 2px; align-items: center; color: var(--muted); font-size: 13.5px; }
+body.busy #thinking { display: flex; }
+#thinking i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: bounce 1.2s infinite ease-in-out; }
+#thinking i:nth-child(2) { animation-delay: .15s; } #thinking i:nth-child(3) { animation-delay: .3s; }
+@keyframes bounce { 0%, 80%, 100% { opacity: .25; transform: scale(.75); } 40% { opacity: 1; transform: scale(1); } }
+
+/* ---------------------------------------------------------------- cuadro de texto */
+#composer-wrap { flex: none; padding: 4px 18px 16px; }
+#composer { max-width: 760px; margin: 0 auto; }
+body.quick #composer-wrap { padding: 4px 14px 14px; }
+#status { font-size: 12.5px; color: var(--listen); font-weight: 600; padding: 0 14px 4px; display: none; }
+#status.show { display: block; }
+#box {
+  display: flex; align-items: flex-end; gap: 6px; padding: 6px 6px 6px 16px; border-radius: 24px;
+  background: var(--card); border: 1.5px solid var(--border); transition: border-color .15s, box-shadow .15s;
+}
+#box:focus-within { border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); box-shadow: 0 0 0 3px var(--accent-soft); }
+#box.listening { border-color: var(--listen); box-shadow: 0 0 0 3px color-mix(in srgb, var(--listen) 18%, transparent); }
+#input {
+  flex: 1; resize: none; border: none; outline: none; background: transparent; color: var(--fg); font: inherit;
+  padding: 7px 0; max-height: 200px; min-height: 24px; line-height: 1.5; user-select: text;
+}
+#input::placeholder { color: var(--muted); }
+.round {
+  width: 38px; height: 38px; border-radius: 50%; border: none; display: grid; place-items: center; cursor: pointer;
+  flex: none; transition: background .12s, transform .08s, opacity .12s;
+}
+.round:active { transform: scale(.94); }
+#mic { background: transparent; color: var(--muted); }
+#mic:hover { background: var(--border); color: var(--fg); }
+#mic.listening { background: var(--listen); color: white; }
+#send { background: var(--accent); color: white; }
+#send:hover { background: color-mix(in srgb, var(--accent) 88%, black); }
+#send:disabled { opacity: .45; cursor: default; }
+#send .stop, body.busy #send .up { display: none; }
+body.busy #send .stop { display: block; }
+#mic .stop, #mic.listening .micon { display: none; }
+#mic.listening .stop { display: block; }
+#level { width: 56px; height: 6px; border-radius: 3px; background: var(--border); align-self: center; overflow: hidden; display: none; margin-right: 2px; }
+#level i { display: block; height: 100%; width: 0; background: var(--listen); transition: width .05s linear; }
+#box.listening #level { display: block; }
+
+/* ---------------------------------------------------------------- diálogos */
+#modal-bg {
+  position: fixed; inset: 0; z-index: 50; display: none; place-items: center; padding: 20px;
+  background: color-mix(in srgb, black 35%, transparent); animation: fade .15s ease-out;
+}
+#modal-bg.open { display: grid; }
+@keyframes fade { from { opacity: 0; } }
+.dialog {
+  background: var(--bg); border-radius: 20px; box-shadow: var(--shadow); width: min(520px, 100%); max-height: 100%;
+  display: flex; flex-direction: column; overflow: hidden; animation: pop .15s ease-out; border: 1px solid var(--border);
+}
+.dialog .head { padding: 22px 24px 4px; }
+.dialog h2 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+.dialog .sub { color: var(--muted); margin: 4px 0 0; font-size: 14px; white-space: pre-wrap; }
+.dialog .content { padding: 12px 24px; overflow-y: auto; user-select: text; }
+.dialog pre.detail { margin: 0; white-space: pre-wrap; word-break: break-word; max-height: 280px; overflow: auto; font-size: 12.5px; }
+.dialog .actions { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 20px 20px; flex-wrap: wrap; }
+.dialog .actions.column { flex-direction: column; align-items: stretch; }
+.pill {
+  border: 1px solid var(--border); background: var(--card); padding: 8px 18px; border-radius: 12px; cursor: pointer;
+  font-weight: 600; font-size: 14px; transition: background .12s, border-color .12s;
+}
+.pill:hover { border-color: color-mix(in srgb, var(--fg) 25%, var(--border)); }
+.pill.suggested { background: var(--accent); border-color: var(--accent); color: white; }
+.pill.suggested:hover { background: color-mix(in srgb, var(--accent) 88%, black); }
+.pill.destructive { color: var(--error); }
+.pill.option { text-align: left; }
+.pill.option small { display: block; font-weight: 400; color: var(--muted); font-size: 12.5px; }
+.pill.option.suggested small { color: rgba(255,255,255,.85); }
+
+.prefs .group { margin: 4px 0 18px; }
+.prefs .group > h3 { font-size: 13px; font-weight: 650; color: var(--muted); margin: 0 0 8px; text-transform: uppercase; letter-spacing: .04em; }
+.prefs .rows { border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+.prefs .row { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--border); }
+.prefs .row:last-child { border-bottom: none; }
+.prefs .row .t { flex: 1; min-width: 0; }
+.prefs .row .t b { font-weight: 600; font-size: 14.5px; display: block; }
+.prefs .row .t small { color: var(--muted); font-size: 12.5px; display: block; line-height: 1.35; }
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.swatch { width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; display: grid; place-items: center; color: white; }
+.swatch.on { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--fg); }
+.swatch svg { width: 16px; height: 16px; stroke-width: 3; }
+input[type=color] { width: 40px; height: 32px; border: 1px solid var(--border); border-radius: 8px; background: none; padding: 2px; cursor: pointer; }
+select { font: inherit; font-size: 14px; color: var(--fg); background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 5px 8px; }
+.switch { position: relative; width: 44px; height: 24px; flex: none; }
+.switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.switch span { position: absolute; inset: 0; border-radius: 99px; background: var(--border); transition: background .15s; cursor: pointer; }
+.switch span::after { content: ""; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: white;
+                      transition: transform .15s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.switch input:checked + span { background: var(--accent); }
+.switch input:checked + span::after { transform: translateX(20px); }
+.switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.keys { display: flex; gap: 4px; flex: none; }
+.about { text-align: center; padding: 26px 24px 6px; }
+.about .hand { width: 72px; height: 72px; margin: 0 auto 6px; color: var(--accent); }
+.about h2 { font-size: 22px; }
+.about p { color: var(--muted); margin: 6px 0; font-size: 14px; }
+.about a { color: var(--accent-text); }
+
+#toast {
+  position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%) translateY(10px); z-index: 60; opacity: 0; pointer-events: none;
+  background: var(--fg); color: var(--bg); padding: 9px 18px; border-radius: 12px; font-size: 14px; transition: opacity .2s, transform .2s;
+  max-width: 80%; text-align: center; box-shadow: var(--shadow);
+}
+#toast.show { opacity: 1; transform: translateX(-50%); }
+
+/*PYGMENTS*/
+</style>
+</head>
+<body>
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.5h7.5A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></symbol>
+  <symbol id="i-cut" viewBox="0 0 24 24"><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.2 15.8 19 4M15.8 15.8 5 4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><circle cx="12" cy="5.5" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="18.5" r="1.3" fill="currentColor"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+</svg>
+
+<header id="bar">
+  <button class="btn" id="project-btn" title="Cambiar de proyecto (Ctrl+O)">
+    <svg class="i"><use href="#i-folder"/></svg>
+    <span class="txt"><b id="title">Hi Claude!</b><small id="subtitle"></small></span>
+    <svg class="i" style="width:14px;height:14px;opacity:.6"><use href="#i-down"/></svg>
+  </button>
+  <button class="btn" id="continue-btn" title="Seguir en la app principal"><svg class="i"><use href="#i-expand"/></svg></button>
+  <div id="quick-title"><span class="mini">/*HAND*/</span>Pregunta sobre el recorte</div>
+  <div class="grow"></div>
+  <button class="btn" id="snip-btn" title="Recortar pantalla"><svg class="i"><use href="#i-cut"/></svg></button>
+  <button class="btn" id="new-btn" title="Nueva conversación (Ctrl+N)"><svg class="i"><use href="#i-plus"/></svg></button>
+  <button class="btn" id="menu-btn" title="Menú"><svg class="i"><use href="#i-menu"/></svg></button>
+</header>
+<div class="menu" id="recent-menu"></div>
+<div class="menu" id="main-menu">
+  <button class="item" data-act="toggleAcceptEdits"><span class="check" id="accept-check"></span>Aceptar ediciones sin preguntar</button>
+  <div class="sep"></div>
+  <button class="item" data-act="prefs"><span class="check"></span>Preferencias<small>Ctrl+,</small></button>
+  <button class="item" data-act="shortcuts"><span class="check"></span>Atajos de teclado</button>
+  <button class="item" data-act="about"><span class="check"></span>Acerca de Hi Claude!</button>
+</div>
+
+<main id="scroll">
+  <div id="preview"><img id="preview-img" alt="Recorte"><p>¿Qué quieres saber de esto? Escríbelo o dicta con el micrófono.</p></div>
+  <div id="chat">
+    <div id="empty">
+      <div class="hand">/*HAND*/</div>
+      <h1>¡Hola! <span>¿En qué te ayudo?</span></h1>
+      <div class="project">📁 <span id="empty-project"></span></div>
+      <div class="suggestions">
+        <button class="suggestion" data-text="Explícame qué hace este proyecto y cómo está organizado."><b>🗺️ Explícame el proyecto</b><small>Estructura y piezas principales</small></button>
+        <button class="suggestion" data-text="Revisa el código en busca de errores o cosas que se puedan mejorar."><b>🔍 Busca errores</b><small>Revisión rápida del código</small></button>
+        <button class="suggestion" data-text="¿Qué ha cambiado en los últimos commits? Resúmelo."><b>🕘 Últimos cambios</b><small>Resumen del historial de git</small></button>
+        <button class="suggestion" data-text="¿Qué me recomiendas hacer a continuación en este proyecto?"><b>💡 Siguiente paso</b><small>Ideas para seguir</small></button>
+      </div>
+      <div class="hint" id="empty-hint"></div>
+    </div>
+    <div id="messages"></div>
+    <div id="thinking"><i></i><i></i><i></i><span id="thinking-label">Pensando…</span></div>
+  </div>
+</main>
+
+<footer id="composer-wrap">
+  <div id="composer">
+    <div id="status"></div>
+    <div id="box">
+      <textarea id="input" rows="1" placeholder="Escribe a Claude…"></textarea>
+      <div id="level"><i></i></div>
+      <button class="round" id="mic" title="Hablar (Ctrl+M)">
+        <svg class="i micon"><use href="#i-mic"/></svg><svg class="i stop"><use href="#i-stop"/></svg>
+      </button>
+      <button class="round" id="send" title="Enviar (Intro)">
+        <svg class="i up"><use href="#i-up"/></svg><svg class="i stop"><use href="#i-stop"/></svg>
+      </button>
+    </div>
+  </div>
+</footer>
+
+<div id="modal-bg"><div class="dialog" id="dialog"></div></div>
+<div id="toast"></div>
+<template id="hand-tpl">/*HAND*/</template>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const $messages = $("messages"), $scroll = $("scroll"), $input = $("input");
+const byId = {};
+let lastKind = null;      // "user" | "assistant" | "tool"
+let toolGroup = null;
+let busy = false;
+let scheme = "system", accent = "#d97757";
+let prefs = {};           // lo que manda Python con setPrefs()
+let modalOnClose = null;
+let pythonReady = false;
+const pending = [];
+
+// ---------------------------------------------------------------- puente con Python
+function api(name, ...args) {
+  if (!pythonReady) { pending.push([name, args]); return Promise.resolve(); }
+  try { return window.pywebview.api[name](...args); } catch (e) { console.error(e); return Promise.resolve(); }
+}
+window.addEventListener("pywebviewready", () => {
+  pythonReady = true;
+  api("ready");
+  pending.splice(0).forEach(([n, a]) => api(n, ...a));
+});
+
+// ---------------------------------------------------------------- utilidades
+function nearBottom() { return $scroll.scrollTop + $scroll.clientHeight >= $scroll.scrollHeight - 140; }
+function stick(wasNear) { if (wasNear) $scroll.scrollTop = $scroll.scrollHeight; }
+function el(tag, cls, html) { const d = document.createElement(tag); if (cls) d.className = cls; if (html) d.innerHTML = html; return d; }
+function esc(t) { const d = document.createElement("div"); d.textContent = t == null ? "" : String(t); return d.innerHTML; }
+function icon(name) { return `<svg class="i"><use href="#i-${name}"/></svg>`; }
+function kbd(combo) { return combo.split("+").map(k => `<kbd>${esc(k)}</kbd>`).join(" "); }
+function add(node) {
+  const near = nearBottom();
+  $messages.appendChild(node);
+  document.body.classList.add("has-messages");
+  stick(near);
+  return node;
+}
+function claudeHeader() {
+  if (lastKind === "assistant" || lastKind === "tool") return;
+  const who = el("div", "who msg");
+  who.innerHTML = `<span class="avatar">${$("hand-tpl").innerHTML}</span>Claude`;
+  add(who);
+}
+function addCopyButtons(root) {
+  root.querySelectorAll("pre.code").forEach(pre => {
+    if (pre.querySelector(".copy")) return;
+    const b = el("button", "copy", "Copiar");
+    b.addEventListener("click", () => {
+      api("copy", pre.querySelector("code").innerText);
+      b.textContent = "Copiado"; setTimeout(() => b.textContent = "Copiar", 1400);
+    });
+    pre.appendChild(b);
+  });
+}
+
+// ---------------------------------------------------------------- conversación (lo llama Python)
+function addUser(text, viaVoice, imageUri) {
+  const wrap = el("div", "msg user"), b = el("div", "bubble");
+  if (viaVoice) b.appendChild(el("div", "via", "🎙 por voz"));
+  if (imageUri) { const img = el("img"); img.src = imageUri; b.appendChild(img); }
+  const t = el("span"); t.textContent = text; b.appendChild(t);
+  wrap.appendChild(b);
+  add(wrap);
+  lastKind = "user"; toolGroup = null;
+  $scroll.scrollTop = $scroll.scrollHeight;
+}
+function setAssistant(id, html, streaming) {
+  const near = nearBottom();
+  let node = byId[id];
+  if (!node) { claudeHeader(); node = byId[id] = add(el("div", "msg assistant")); lastKind = "assistant"; toolGroup = null; }
+  node.innerHTML = html;
+  node.classList.toggle("streaming", !!streaming);
+  if (!streaming) addCopyButtons(node);
+  stick(near);
+}
+function addTool(id, icn, title, detail) {
+  claudeHeader();
+  if (!toolGroup || lastKind !== "tool") toolGroup = add(el("div", "tools msg"));
+  const d = el("details", "tool run");
+  d.innerHTML = `<summary><span>${icn}</span><span class="title">${title}</span><span class="chev">▶</span></summary>` +
+                `<div class="body">${detail}</div>`;
+  const near = nearBottom();
+  toolGroup.appendChild(d);
+  stick(near);
+  byId[id] = d;
+  lastKind = "tool";
+}
+function setToolResult(id, ok, html) {
+  const d = byId[id]; if (!d) return;
+  d.classList.remove("run");
+  d.classList.add(ok ? "ok" : "err");
+  if (html) d.querySelector(".body").insertAdjacentHTML("beforeend", html);
+}
+function finishRunningTools() { document.querySelectorAll("details.tool.run").forEach(d => d.classList.remove("run")); }
+function addNote(html, kind) { add(el("div", "note msg " + (kind || ""), html)); }
+function addDone(text) { add(el("div", "done", text)); lastKind = null; toolGroup = null; }
+function setBusy(b, label) {
+  busy = b;
+  document.body.classList.toggle("busy", b);
+  $("send").title = b ? "Detener (Esc)" : "Enviar (Intro)";
+  $("thinking-label").textContent = label || "Pensando…";
+  updateSend();
+  if (b) stick(nearBottom());
+}
+function setCompact(c) { document.body.classList.toggle("quick", c); }
+function setProject(t) { $("empty-project").textContent = t; }
+function clearChat() {
+  $messages.innerHTML = "";
+  for (const k in byId) delete byId[k];
+  lastKind = null; toolGroup = null;
+  document.body.classList.remove("has-messages", "busy");
+  busy = false; updateSend();
+}
+
+// ---------------------------------------------------------------- apariencia
+const darkQuery = matchMedia("(prefers-color-scheme: dark)");
+function isDark() { return scheme === "dark" || (scheme === "system" && darkQuery.matches); }
+function applyScheme() {
+  const d = isDark();
+  document.documentElement.classList.toggle("dark", d);
+  api("themeResolved", d);
+}
+function setScheme(s) { scheme = s; applyScheme(); }
+function setDark(d) { setScheme(d ? "dark" : "light"); }
+function setAccent(c) { accent = c; document.documentElement.style.setProperty("--accent", c); }
+darkQuery.addEventListener("change", () => { if (scheme === "system") applyScheme(); });
+
+// ---------------------------------------------------------------- cabecera, menús
+function setHeader(title, subtitle) { $("title").textContent = title; $("subtitle").textContent = subtitle; }
+function setPrefs(p) {
+  prefs = p;
+  $("accept-check").textContent = p.accept_edits ? "✓" : "";
+  $("empty-hint").innerHTML = `${kbd(p.hotkey_voice)} hablar &nbsp;·&nbsp; ${kbd(p.hotkey_snip)} recortar pantalla &nbsp;·&nbsp; ${kbd(p.hotkey_open)} abrir`;
+  $("snip-btn").title = `Recortar pantalla (${p.hotkey_snip})`;
+  if ($("dialog").dataset.kind === "prefs") renderPrefs();
+}
+function setRecent(list) {
+  const m = $("recent-menu");
+  m.innerHTML = `<button class="item" data-path=""><svg class="i"><use href="#i-folder"/></svg>Elegir otra carpeta…<small>Ctrl+O</small></button>`;
+  if (list.length) m.insertAdjacentHTML("beforeend", `<div class="sep"></div><div class="label">Recientes</div>`);
+  list.forEach(([path, pretty]) => {
+    const b = el("button", "item"); b.dataset.path = path; b.textContent = pretty; m.appendChild(b);
+  });
+}
+function closeMenus() { document.querySelectorAll(".menu.open").forEach(m => m.classList.remove("open")); }
+function openMenu(menu, anchor, alignRight) {
+  const open = menu.classList.contains("open");
+  closeMenus();
+  if (open) return;
+  const r = anchor.getBoundingClientRect();
+  menu.classList.add("open");
+  menu.style.top = (r.bottom + 4) + "px";
+  if (alignRight) { menu.style.left = "auto"; menu.style.right = (innerWidth - r.right) + "px"; }
+  else { menu.style.right = "auto"; menu.style.left = r.left + "px"; }
+}
+$("project-btn").addEventListener("click", e => { e.stopPropagation(); openMenu($("recent-menu"), $("project-btn"), false); });
+$("menu-btn").addEventListener("click", e => { e.stopPropagation(); openMenu($("main-menu"), $("menu-btn"), true); });
+$("recent-menu").addEventListener("click", e => {
+  const b = e.target.closest(".item"); if (!b) return;
+  closeMenus();
+  b.dataset.path ? api("openProject", b.dataset.path) : api("chooseProject");
+});
+$("main-menu").addEventListener("click", e => {
+  const b = e.target.closest(".item"); if (!b) return;
+  closeMenus();
+  ({ toggleAcceptEdits: () => api("setPref", "accept_edits", !prefs.accept_edits),
+     prefs: openPrefs, shortcuts: openShortcuts, about: openAbout })[b.dataset.act]();
+});
+document.addEventListener("click", e => { if (!e.target.closest(".menu")) closeMenus(); });
+$("snip-btn").addEventListener("click", () => api("snip"));
+$("new-btn").addEventListener("click", () => api("newChat"));
+$("continue-btn").addEventListener("click", () => api("continueInMain"));
+document.querySelectorAll(".suggestion").forEach(b => b.addEventListener("click", () => api("submit", b.dataset.text, false)));
+
+// los enlaces se abren en el navegador, nunca dentro de la app
+document.addEventListener("click", e => {
+  const a = e.target.closest("a[href]");
+  if (!a) return;
+  e.preventDefault();
+  api("openUrl", a.href);
+});
+
+// ---------------------------------------------------------------- recorte
+function setPreview(uri) { $("preview-img").src = uri; document.body.classList.remove("sent"); }
+function markSent() { document.body.classList.add("sent"); }
+
+// ---------------------------------------------------------------- cuadro de texto y voz
+function autoGrow() { $input.style.height = "auto"; $input.style.height = Math.min($input.scrollHeight, 200) + "px"; }
+function updateSend() { $("send").disabled = !busy && !$input.value.trim(); }
+function setComposerText(t) { $input.value = t; autoGrow(); updateSend(); }
+function focusComposer() { $input.focus(); }
+function setPlaceholder(t) { $input.placeholder = t; }
+function submit(viaVoice) {
+  const text = $input.value.trim();
+  if (!text || busy) return;
+  setComposerText("");
+  api("submit", text, !!viaVoice);
+}
+$input.addEventListener("input", () => { autoGrow(); updateSend(); });
+$input.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (!busy) submit(false); }
+});
+$("send").addEventListener("click", () => busy ? api("stop") : submit(false));
+$("mic").addEventListener("click", () => api("toggleVoice"));
+
+function setVoiceState(state) {
+  const listening = state === "listening";
+  $("box").classList.toggle("listening", listening);
+  $("mic").classList.toggle("listening", listening);
+  $("mic").title = listening ? "Terminar y transcribir" : "Hablar (Ctrl+M)";
+  const s = $("status");
+  s.textContent = { listening: "Escuchando… haz una pausa al terminar", transcribing: "Transcribiendo…" }[state] || "";
+  s.classList.toggle("show", state !== "idle");
+  if (!listening) $("level").firstChild.style.width = "0";
+}
+function setLevel(v) { $("level").firstChild.style.width = Math.round(v * 100) + "%"; }
+/** Texto dictado: se añade a lo escrito y, si toca, se envía. */
+function voiceText(text, autoSend) {
+  setComposerText(($input.value + " " + text).trim());
+  if (autoSend && !busy) submit(true); else focusComposer();
+}
+
+// ---------------------------------------------------------------- avisos
+let toastTimer = null;
+function toast(text) {
+  const t = $("toast");
+  t.textContent = text; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 3000);
+}
+
+// ---------------------------------------------------------------- diálogos
+function openModal(kind, html, onClose) {
+  const d = $("dialog");
+  d.dataset.kind = kind;
+  d.innerHTML = html;
+  modalOnClose = onClose || null;
+  $("modal-bg").classList.add("open");
+  const def = d.querySelector("[data-default]") || d.querySelector("button");
+  if (def) setTimeout(() => def.focus(), 30);
+}
+function closeModal(cancelled) {
+  if (!$("modal-bg").classList.contains("open")) return false;
+  $("modal-bg").classList.remove("open");
+  $("dialog").dataset.kind = "";
+  const cb = modalOnClose; modalOnClose = null;
+  if (cancelled && cb) cb();
+  setTimeout(focusComposer, 20);
+  return true;
+}
+$("modal-bg").addEventListener("mousedown", e => { if (e.target === $("modal-bg") && !["permission", "question"].includes($("dialog").dataset.kind)) closeModal(true); });
+
+/** Permiso para una herramienta: Permitir / Permitir siempre / Denegar. */
+function askPermission(reqId, heading, detail) {
+  const answer = r => { closeModal(false); api("permission", reqId, r); };
+  openModal("permission", `
+    <div class="head"><h2>${esc(heading)}</h2><p class="sub">Claude quiere hacer esto en tu proyecto.</p></div>
+    <div class="content"><pre class="detail">${esc(detail)}</pre></div>
+    <div class="actions">
+      <button class="pill destructive" data-r="deny">Denegar</button>
+      <button class="pill" data-r="always">Permitir siempre</button>
+      <button class="pill suggested" data-r="allow" data-default>Permitir</button>
+    </div>`, () => api("permission", reqId, "deny"));
+  $("dialog").querySelectorAll("[data-r]").forEach(b => b.addEventListener("click", () => answer(b.dataset.r)));
+}
+/** Una pregunta de Claude (AskUserQuestion) con sus opciones. */
+function askQuestion(reqId, header, question, options) {
+  const opts = options.map((o, i) =>
+    `<button class="pill option ${i === 0 ? "suggested" : ""}" data-i="${i}" ${i === 0 ? "data-default" : ""}>${esc(o.label)}${o.description ? `<small>${esc(o.description)}</small>` : ""}</button>`).join("");
+  openModal("question", `
+    <div class="head"><h2>${esc(header || "Claude pregunta")}</h2><p class="sub">${esc(question)}</p></div>
+    <div class="actions column">${opts}<button class="pill" data-i="-1">Cancelar</button></div>`,
+    () => api("answer", reqId, -1));
+  $("dialog").querySelectorAll("[data-i]").forEach(b => b.addEventListener("click", () => { closeModal(false); api("answer", reqId, +b.dataset.i); }));
+}
+
+function openPrefs() { openModal("prefs", ""); renderPrefs(); }
+function renderPrefs() {
+  const p = prefs, cur = (p.accent || accent).toLowerCase();
+  const name = (p.presets.find(([, c]) => c === cur) || ["Personalizado"])[0];
+  const sw = p.presets.map(([n, c]) =>
+    `<button class="swatch ${c === cur ? "on" : ""}" style="background:${c}" title="${esc(n)}" data-c="${c}">${c === cur ? icon("check") : ""}</button>`).join("");
+  const toggle = (key, title, sub) => `
+    <label class="row"><span class="t"><b>${title}</b>${sub ? `<small>${sub}</small>` : ""}</span>
+      <span class="switch"><input type="checkbox" data-k="${key}" ${p[key] ? "checked" : ""}><span></span></span></label>`;
+  const sc = (what, combo) => `<div class="row"><span class="t"><b>${what}</b></span><span class="keys">${kbd(combo)}</span></div>`;
+  const d = $("dialog");
+  const scrollTop = d.querySelector(".content") ? d.querySelector(".content").scrollTop : 0;
+  d.innerHTML = `
+    <div class="head"><h2>Preferencias</h2></div>
+    <div class="content prefs">
+      <div class="group"><h3>Apariencia</h3><div class="rows">
+        <div class="row"><span class="t"><b>Color principal</b><small>${esc(name)} · ${esc(cur)}</small></span>
+          <input type="color" id="pick" value="${cur}" title="Elegir cualquier color"></div>
+        <div class="swatches">${sw}</div>
+        <div class="row"><span class="t"><b>Estilo</b></span>
+          <select id="scheme">
+            <option value="system">Como el sistema</option><option value="light">Claro</option><option value="dark">Oscuro</option>
+          </select></div>
+      </div></div>
+      <div class="group"><h3>Claude</h3><div class="rows">
+        ${toggle("accept_edits", "Aceptar ediciones sin preguntar", "Claude podrá crear y editar archivos sin pedir permiso cada vez")}
+      </div></div>
+      <div class="group"><h3>Voz</h3><div class="rows">
+        ${toggle("auto_send", "Enviar al terminar de hablar", "Si lo desactivas, puedes revisar el texto antes de enviarlo")}
+        ${toggle("beep", "Pitido al empezar a escuchar", "")}
+      </div></div>
+      <div class="group"><h3>Atajos globales</h3><div class="rows">
+        ${sc("Abrir Hi Claude!", p.hotkey_open)}${sc("Abrir y hablar", p.hotkey_voice)}${sc("Recortar pantalla y preguntar", p.hotkey_snip)}
+      </div><p class="sub" style="font-size:12.5px;margin-top:8px">Se cambian en <code>config.toml</code> (botón de abajo). Funcionan aunque la app esté cerrada.</p></div>
+    </div>
+    <div class="actions"><button class="pill" id="open-config">Abrir config.toml</button><button class="pill suggested" id="close-prefs" data-default>Hecho</button></div>`;
+  d.querySelector(".content").scrollTop = scrollTop;
+  $("scheme").value = p.color_scheme;
+  $("scheme").addEventListener("change", e => api("setPref", "color_scheme", e.target.value));
+  $("pick").addEventListener("change", e => api("setPref", "accent", e.target.value));
+  $("pick").addEventListener("input", e => setAccent(e.target.value));
+  d.querySelectorAll(".swatch").forEach(b => b.addEventListener("click", () => api("setPref", "accent", b.dataset.c)));
+  d.querySelectorAll("input[data-k]").forEach(i => i.addEventListener("change", () => api("setPref", i.dataset.k, i.checked)));
+  $("close-prefs").addEventListener("click", () => closeModal(false));
+  $("open-config").addEventListener("click", () => api("openConfig"));
+}
+function openShortcuts() {
+  const p = prefs;
+  const row = (what, combo) => `<div class="row"><span class="t"><b>${what}</b></span><span class="keys">${kbd(combo)}</span></div>`;
+  openModal("shortcuts", `
+    <div class="head"><h2>Atajos de teclado</h2></div>
+    <div class="content prefs">
+      <div class="group"><h3>En todo el escritorio</h3><div class="rows">
+        ${row("Abrir Hi Claude!", p.hotkey_open)}${row("Abrir y hablar", p.hotkey_voice)}${row("Recortar pantalla y preguntar", p.hotkey_snip)}
+      </div></div>
+      <div class="group"><h3>En la app</h3><div class="rows">
+        ${row("Enviar", "Intro")}${row("Nueva línea", "Mayús+Intro")}${row("Hablar / terminar de hablar", "Ctrl+M")}
+        ${row("Detener", "Esc")}${row("Nueva conversación", "Ctrl+N")}${row("Cambiar de proyecto", "Ctrl+O")}${row("Preferencias", "Ctrl+,")}
+      </div></div>
+    </div>
+    <div class="actions"><button class="pill suggested" data-default onclick="closeModal(false)">Cerrar</button></div>`);
+}
+function openAbout() {
+  openModal("about", `
+    <div class="about"><div class="hand">${$("hand-tpl").innerHTML}</div><h2>Hi Claude!</h2>
+      <p>Versión ${esc(prefs.version)} para Windows · de 9Dariuss</p>
+      <p>Claude Code en una ventana, con voz local y recortes de pantalla.</p>
+      <p><a href="https://github.com/9Dariuss/hi-claude">github.com/9Dariuss/hi-claude</a> · Licencia MIT</p>
+      <p style="font-size:12px">Claude y su logo son marcas de Anthropic. Proyecto personal no oficial.</p></div>
+    <div class="actions"><button class="pill suggested" data-default onclick="closeModal(false)">Cerrar</button></div>`);
+}
+
+// ---------------------------------------------------------------- teclado
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") {
+    e.preventDefault();
+    if (document.querySelector(".menu.open")) { closeMenus(); return; }
+    if (closeModal(true)) return;
+    api("escape");
+    return;
+  }
+  if ($("modal-bg").classList.contains("open")) return;
+  if (!e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  const quick = document.body.classList.contains("quick");
+  if (k === "m") { e.preventDefault(); api("toggleVoice"); }
+  else if (k === "n" && !quick) { e.preventDefault(); api("newChat"); }
+  else if (k === "o" && !quick) { e.preventDefault(); api("chooseProject"); }
+  else if (k === "," && !quick) { e.preventDefault(); openPrefs(); }
+});
+window.addEventListener("focus", () => { if (!$("modal-bg").classList.contains("open")) focusComposer(); });
+updateSend();
+focusComposer();
+</script>
+</body>
+</html>

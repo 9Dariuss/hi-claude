@@ -100,12 +100,31 @@ Flujo de mensajes del SDK que maneja la UI:
 13. Antes de capturar, minimiza la ventana principal si está delante, o saldrá en la captura.
 14. Para pasar una conversación a otra ventana: guarda las llamadas JS de contenido (`history`) y repítelas, y retoma la sesión del SDK con `resume=session_id`. Los ids de los bloques llevan `id(controller)` para que no choquen.
 
-## Checklist al terminar en Windows
+## Estado en Windows (v3.0, `windows/`) — hecho y probado en Windows 11
 
-- [ ] `windows/app.py` con pywebview + diálogo de permisos y Preferencias en HTML
-- [ ] Instancia única con `--voice` y `--snip` reenviados a la ventana abierta
-- [ ] Recorte: `mss` + selección a pantalla completa + ventanita de chat con la imagen
-- [ ] `windows/install.ps1` + icono `.ico` + accesos directos (o script AutoHotkey con Win+C, Win+Alt+C, Ctrl+Win+C)
-- [ ] Probar: enviar texto, permiso de edición, interrumpir, voz con GPU y sin GPU, recorte en los dos monitores, cambiar el color
-- [ ] Actualizar la tabla de plataformas y añadir «Instalación en Windows» en el `README.md`
-- [ ] Añadir aquí las lecciones nuevas de Windows
+- [x] `windows/hi_claude/app.py` con pywebview + diálogo de permisos y Preferencias en HTML
+- [x] Instancia única con `--voice`, `--snip` y carpeta reenviados a la ventana abierta (mutex + named pipe, ~1 s)
+- [x] Recorte: `mss` + selección a pantalla completa por monitor (tkinter, proceso aparte) + ventanita de chat con la imagen + ⤢ para seguir en la principal
+- [x] `windows/install.ps1` + `Instalar Hi Claude.cmd` + `desinstalar.ps1` + icono `.ico` + accesos directos + atajos globales propios (sin AutoHotkey)
+- [x] Probado: texto con streaming, tablas y código; Permitir / Permitir siempre / Denegar; AskUserQuestion; Preferencias (color, oscuro); voz en CPU (transcripción local de una frase en español en 2 s); recorte en los dos monitores; instalador en una carpeta de prueba
+- [ ] Sin probar todavía: Claude real de punta a punta desde la app instalada (en el PC de prueba Claude Code no tenía sesión iniciada fuera de la app de escritorio), voz con GPU NVIDIA, un atajo pulsado con el teclado de verdad
+
+## Lecciones de Windows
+
+1. **Atajos**: `RegisterHotKey` falla con Win+C (Copilot) y Ctrl+Win+C (filtros de color): error 1409, ya registrados. Win+Shift+C también está cogido. Libres: Win+Alt+C/V/X/S, Ctrl+Alt+C. Por eso los atajos de Windows son **Win+Alt+C / V / X**, configurables (`hotkey_*`).
+2. Para que funcionen con la app cerrada hace falta algo residente: en vez de AutoHotkey, `hi-claude --atajos` (ctypes `RegisterHotKey` + `GetMessageW`, dormido) desde un acceso directo en `shell:startup`. Llama a `AllowSetForegroundWindow(ASFW_ANY)` antes de avisar a la app para que pueda ponerse delante. Importa lo mínimo (no `voice`, que trae numpy).
+3. **pywebview** (6.x, WinForms + WebView2) funciona con Python 3.14 (pythonnet 3.2). `window.run_js()` no espera respuesta: va bien para el streaming. Los atributos de la clase de la API deben empezar por `_` o pywebview intenta exponerlos a JS.
+4. Toda la lógica de la interfaz corre en un hilo propio (`mainloop.py`, el equivalente a `GLib.idle_add`/`timeout_add`): la API de JS llega desde hilos sueltos de pywebview y el SDK desde su hilo asyncio.
+5. **No uses `keys` como nombre de función global en chat.html**: en WebView2 choca con algo del entorno («keys is not a function»). Se llama `kbd()`.
+6. `navigator.clipboard` no funciona en una página cargada con `html=` (no es contexto seguro): copiar va por la API de Python (`win32clipboard`).
+7. **Barra de título**: `DwmSetWindowAttribute` con `DWMWA_CAPTION_COLOR` (35) y `DWMWA_TEXT_COLOR` (36) la pinta del color de fondo de la app en Windows 11 (crema / `#1f1e1c`), y `DWMWA_USE_IMMERSIVE_DARK_MODE` (20) la oscurece en Windows 10. El `hwnd` sale de `window.native.Handle`.
+8. Icono en la barra de tareas: `SetCurrentProcessExplicitAppUserModelID` (si no, sale el de Python) + `WM_SETICON` con el `.ico`.
+9. El `.ico` se dibuja con Pillow (`windows/data/generar_ico.py`) con la misma geometría que el SVG: en Windows no hay rsvg/cairo.
+10. Recorte: con `SetProcessDpiAwarenessContext(-4)` (per-monitor v2) `mss` y la geometría de tkinter usan píxeles reales y cuadran en monitores con distinto escalado. El trozo sin oscurecer se rehace con un `after(16)` para no saturar.
+11. **WebView2 deja de pintar las ventanas tapadas**: las capturas con `PrintWindow` salen viejas. Para pruebas automáticas: `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--disable-features=CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows`.
+12. **Claude Code dentro de la app de escritorio de Claude** no deja sesión iniciada para el CLI: `claude auth status` → `loggedIn: false` aunque exista `~/.claude/.credentials.json`. Hi Claude! necesita `claude auth login` una vez; el instalador lo detecta y lo lanza. El Agent SDK trae su propio `claude.exe` (firmado por Anthropic), así que no hace falta instalar Claude Code aparte.
+13. Los procesos lanzados desde la app de escritorio de Claude (MSIX) ven `%LOCALAPPDATA%` y `%APPDATA%` **virtualizados** (`Packages\Claude_…\LocalCache`): instalar desde ahí no deja nada visible para el usuario. El instalador lo tiene que ejecutar el usuario (doble clic).
+14. Con `pythonw` no hay `sys.stderr`: se redirige a `hi-claude.log` (`launch.py`). El comando `hi-claude.cmd` usa `python.exe` para ver los mensajes en la terminal.
+15. Los `.ps1` con tildes deben guardarse en **UTF-8 con BOM**, o PowerShell 5.1 los lee como ANSI.
+16. Smart App Control: Python de python.org, el `claude.exe` del SDK y WebView2 están firmados; las ruedas de pip (numpy, ctranslate2, pillow…) cargaron sin problema en un equipo con Smart App Control activado.
+17. faster-whisper descarga el modelo con avisos de enlaces simbólicos (Windows sin modo desarrollador): son inofensivos; `HF_HUB_DISABLE_SYMLINKS_WARNING=1` los calla.
